@@ -312,7 +312,8 @@ else:
             df_ledger['회계일'] = pd.to_datetime(df_ledger['회계일'])
             df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%#m')
             
-            # Handle different account names and calculate P&L
+            # The following code only calculates 손익 for '외화환산이익' and '외화환산손실',
+            # automatically ignoring other account names like '월계' and '누계'.
             df_ledger['fx_pl'] = 0
             df_ledger.loc[df_ledger['계정명'] == '외화환산이익', 'fx_pl'] = df_ledger['대변']
             df_ledger.loc[df_ledger['계정명'] == '외화환산손실', 'fx_pl'] = -df_ledger['차변']
