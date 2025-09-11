@@ -297,9 +297,9 @@ else:
         st.markdown(f"**총 파생상품 거래손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
 
     # --- Process uploaded file for FX P&L
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("외화환산손익 데이터")
-    uploaded_file = st.sidebar.file_uploader("계정별원장(.xlsx, .xls) 업로드", type=["xlsx", "xls"], help="외화환산이익/손실을 포함하는 계정별원장 엑셀 파일을 업로드하세요.")
+    st.markdown("---")
+    st.subheader("외화환산손익 데이터")
+    uploaded_file = st.file_uploader("계정별원장(.xlsx, .xls) 업로드", type=["xlsx", "xls"], help="외화환산이익/손실을 포함하는 계정별원장 엑셀 파일을 업로드하세요.")
     
     monthly_fx_pl = {}
     if uploaded_file is not None:
@@ -339,14 +339,13 @@ else:
                 '차변': '차변',
                 '대변': '대변'
             }, inplace=True)
-            
-            # Now, proceed with the original logic
-            df_ledger['계정명'] = df_ledger['계정명'].astype(str).str.strip()
-            df_ledger['회계일'] = pd.to_datetime(df_ledger['회계일'])
 
             # Convert '차변' and '대변' columns to numeric, coercing errors to NaN
             df_ledger['차변'] = pd.to_numeric(df_ledger['차변'], errors='coerce').fillna(0)
             df_ledger['대변'] = pd.to_numeric(df_ledger['대변'], errors='coerce').fillna(0)
+            
+            # NEW: Filter out rows that contain "월계" or "누계" in the '계정명' column
+            df_ledger = df_ledger[~df_ledger['계정명'].str.contains('월계|누계', case=False, na=False)]
             
             # Calculate FX P&L by checking if the account name CONTAINS the keywords
             df_ledger['fx_pl'] = 0
