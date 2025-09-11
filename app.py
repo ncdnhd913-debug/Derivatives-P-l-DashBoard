@@ -173,7 +173,8 @@ initial_rate_for_hypo = 0.0
 while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_month.replace(day=1):
     is_expiry_month_scenario = (current_year_scenario == end_date.year and current_month_scenario == end_date.month)
     if not is_expiry_month_scenario:
-        month_key = f"{current_year_scenario}-{current_month_scenario}"
+        # 월별 키를 생성할 때 `f"{...}-{...:02d}"` 형식으로 패딩을 추가하여 항상 두 자릿수로 만듭니다.
+        month_key = f"{current_year_scenario}-{current_month_scenario:02d}"
         
         if month_key not in st.session_state.hypothetical_rates:
             st.session_state.hypothetical_rates[month_key] = initial_rate_for_hypo
@@ -255,7 +256,8 @@ else:
 
     # Valuation P&L is calculated only if it's not the maturity month
     if not is_expiry_month:
-        settlement_rate_key = f"{settlement_year}-{settlement_month}"
+        # 월별 키를 생성할 때 `f"{...}-{...:02d}"` 형식으로 패딩을 추가하여 항상 두 자릿수로 만듭니다.
+        settlement_rate_key = f"{settlement_year}-{settlement_month:02d}"
         settlement_forward_rate_for_calc = st.session_state.hypothetical_rates.get(settlement_rate_key, 0)
 
         if settlement_forward_rate_for_calc <= 0:
@@ -308,12 +310,14 @@ else:
             # Ensure column names are correct and handle spaces
             df_ledger.columns = [col.strip() for col in df_ledger.columns]
             
-            # --- The new line below cleans up whitespace in the '계정명' data itself.
+            # The new line below cleans up whitespace in the '계정명' data itself.
             df_ledger['계정명'] = df_ledger['계정명'].str.strip()
 
             # Calculate FX P&L
             df_ledger['회계일'] = pd.to_datetime(df_ledger['회계일'])
-            df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%#m')
+            
+            # [수정] 월별 키를 생성할 때 `%m`을 사용하여 항상 두 자릿수로 패딩합니다.
+            df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%m')
             
             # The following code only calculates 손익 for '외화환산이익' and '외화환산손실',
             # automatically ignoring other account names like '월계' and '누계'.
@@ -337,7 +341,8 @@ else:
     current_month_chart = start_date.month
 
     while date(current_year_chart, current_month_chart, 1) <= end_of_contract_month.replace(day=1):
-        month_key_chart = f"{current_year_chart}-{current_month_chart}"
+        # [수정] 월별 키를 생성할 때 `:02d` 포맷을 사용하여 항상 두 자릿수로 패딩합니다.
+        month_key_chart = f"{current_year_chart}-{current_month_chart:02d}"
         
         # Calculate Derivative P&L
         is_expiry_month_chart = (current_year_chart == end_date.year and current_month_chart == end_date.month)
@@ -355,7 +360,7 @@ else:
                 derivative_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
         
         # Get FX P&L from uploaded file data
-        fx_pl = monthly_fx_pl.get(f"{current_year_chart}-{current_month_chart}", 0)
+        fx_pl = monthly_fx_pl.get(f"{current_year_chart}-{current_month_chart:02d}", 0)
         
         scenario_data.append({
             "결산연월": f"{current_year_chart}년 {current_month_chart}월",
