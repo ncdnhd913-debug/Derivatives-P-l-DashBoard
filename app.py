@@ -426,11 +426,11 @@ else:
     chart_domain = [min_domain, max_domain]
 
     # --- 그룹 막대 차트로 변경하여 모든 월이 표시되도록 수정
-    bar_chart = alt.Chart(df_melted).mark_bar().encode(
+    bar_chart = alt.Chart(df_melted).mark_bar(size=20).encode(
         # Y축
         y=alt.Y('손익 (백만원)', axis=alt.Axis(title='손익 (백만원)', format=',.2f'), scale=alt.Scale(domain=chart_domain)),
         # 그룹을 위한 X축: 결산연월
-        x=alt.X('결산연월:O', axis=alt.Axis(title='결산 연월', labelAngle=-45)),
+        x=alt.X('결산연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0)),
         # 그룹 내 막대 위치를 위한 X축 오프셋
         xOffset=alt.XOffset('손익 종류:N'),
         # 색상
@@ -442,7 +442,8 @@ else:
             alt.Tooltip('손익 (백만원)', title='손익 (백만원)', format=',.2f')
         ]
     ).properties(
-        title='월별 파생상품 및 외화평가 손익 시나리오'
+        title='월별 파생상품 및 외화평가 손익 시나리오',
+        height=400
     ).interactive()
 
     st.altair_chart(bar_chart, use_container_width=True)
