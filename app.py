@@ -287,7 +287,6 @@ if st.sidebar.button("손익 분석 실행"):
             month_key_chart = f"{current_year_chart}-{current_month_chart}"
             is_expiry_month_chart = (current_year_chart == end_date.year and current_month_chart == end_date.month)
             
-            # 만기월이면 거래손익을, 아니면 평가손익을 총 손익으로 계산
             if is_expiry_month_chart:
                 total_pl = expiry_profit_loss
             else:
@@ -297,8 +296,10 @@ if st.sidebar.button("손익 분석 실행"):
                 else: # 선매수
                     total_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
             
-            # 차트 순서 정렬을 위해 YYYY-MM 형식의 날짜 문자열을 사용
-            scenario_data.append({"결산연월": f"{current_year_chart}-{current_month_chart:02d}", "총 손익 (원)": total_pl})
+            # 총 손익을 백만 단위로 변환
+            total_pl_millions = total_pl / 1_000_000
+            
+            scenario_data.append({"결산연월": f"{current_year_chart}년 {current_month_chart}월", "총 손익 (백만원)": total_pl_millions})
 
             current_month_chart += 1
             if current_month_chart > 12:
@@ -307,9 +308,13 @@ if st.sidebar.button("손익 분석 실행"):
         
         df_scenario = pd.DataFrame(scenario_data)
 
-        # 그래프 표시
+        # 데이터프레임을 가로로 변환하고 첫 번째 행을 컬럼 헤더로 사용
+        df_transposed = df_scenario.set_index('결산연월').T
+        df_transposed.index.name = '구분'
+        
+        # 그래프 대신 테이블로 표시
         st.write("각 월에 입력된 예상 통화선도환율을 기준으로 계산된 손익 시나리오입니다.")
-        st.line_chart(df_scenario, x="결산연월", y="총 손익 (원)")
+        st.dataframe(df_transposed, use_container_width=True)
 
     else:
         st.warning("모든 필수 입력값(거래금액, 계약환율, 만기 시점 현물환율)을 모두 0보다 크게 입력해주세요.")
