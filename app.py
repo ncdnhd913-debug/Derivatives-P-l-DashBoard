@@ -56,7 +56,6 @@ contract_rate = st.sidebar.number_input(
 
 # 2. Tenor selection menu
 tenor_options = {
-    "1주일물": 7,
     "1개월물": 30,
     "2개월물": 60,
     "3개월물": 90,
@@ -69,7 +68,7 @@ tenor_options = {
 selected_tenor = st.sidebar.selectbox(
     label="기일물",
     options=list(tenor_options.keys()),
-    index=2, # Default: 2 months
+    index=1, # Default: 2 months
     help="계약 기간(기일물)을 선택하세요."
 )
 tenor_days = tenor_options[selected_tenor]
@@ -445,8 +444,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                                value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                                var_name='손익 종류', value_name='손익 (백만원)')
+                              value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                              var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -466,6 +465,10 @@ else:
     
     chart_domain = [min_domain, max_domain]
 
+    # Calculate dynamic chart width for horizontal scrolling if tenor is > 1 year
+    num_months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month) + 1
+    chart_width = max(600, num_months * 80) # Use a minimum width, then scale up
+    
     # --- 그룹 막대 차트로 변경하여 모든 월이 표시되도록 수정
     bar_chart = alt.Chart(df_melted).mark_bar(size=20).encode(
         # Y축
@@ -484,6 +487,7 @@ else:
         ]
     ).properties(
         title='월별 파생상품 및 외화평가 손익 시나리오',
+        width=chart_width, # Apply dynamic width
         height=400
     ).interactive()
 
@@ -550,6 +554,7 @@ else:
             ]
         ).properties(
             title='계약환율 대비 외화평가 시점별 환율 변동',
+            width=chart_width, # Apply dynamic width
             height=400
         ).interactive()
 
