@@ -153,8 +153,7 @@ settlement_date_corrected = all_settlement_dates[date_options.index(settlement_d
 st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isoformat()}`**")
 
 
-# --- 수정된 기능 추가 ---
-# 결산 가능 월별 예상 통화선도환율 입력
+# --- 월말별 예상 통화선도환율 입력란을 사이드바로 이동 ---
 st.sidebar.subheader("월말별 예상 통화선도환율")
 st.sidebar.markdown(
     "시나리오 분석을 위해 각 월말의 예상 통화선도환율을 입력하세요.",
@@ -187,7 +186,7 @@ for year_to_process, month_to_process in all_settlement_months:
         st.session_state.hypothetical_rates[month_key] = 0.0
 
     # 동적으로 환율 입력 필드 생성
-    st.session_state.hypothetical_rates[month_key] = st.number_input(
+    st.session_state.hypothetical_rates[month_key] = st.sidebar.number_input(
         label=f"{year_to_process}년 {month_to_process}월말",
         min_value=0.0,
         value=st.session_state.hypothetical_rates[month_key],
