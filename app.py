@@ -63,14 +63,35 @@ with col_start_rate:
         help="계약 시작일의 현물환율을 입력하세요."
     )
 
+# 월/년 단위 계약 기간을 정확하게 계산하는 함수
+def add_months_to_date(d, months):
+    """
+    주어진 날짜에 월을 더하여 정확한 날짜를 반환합니다.
+    예: 1월 31일에 1개월을 더하면 2월 28일 또는 29일(윤년)이 됩니다.
+    """
+    year = d.year + (d.month + months - 1) // 12
+    month = (d.month + months - 1) % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
 col_end_date, col_end_rate = st.sidebar.columns(2)
-end_date = start_date + timedelta(days=tenor_days)
+# 기일물에 따라 계약 만기일자 계산
+if selected_tenor.endswith("개월물") or selected_tenor.endswith("년물"):
+    months_to_add = 0
+    if selected_tenor.endswith("개월물"):
+        months_to_add = int(selected_tenor.replace("개월물", ""))
+    elif selected_tenor.endswith("년물"):
+        months_to_add = int(selected_tenor.replace("년물", "")) * 12
+    end_date = add_months_to_date(start_date, months_to_add)
+else:
+    end_date = start_date + timedelta(days=tenor_days)
+
 with col_end_date:
     st.date_input(
-        label="계약 종료일자",
+        label="계약 만기일자",
         value=end_date,
         disabled=True,
-        help="기일물에 따라 자동으로 계산된 계약 종료일자입니다."
+        help="기일물에 따라 자동으로 계산된 계약 만기일자입니다."
     )
 with col_end_rate:
     end_spot_rate = st.number_input(
