@@ -167,7 +167,7 @@ current_month_scenario = start_date.month
 
 # Create a list of all settlement months (excluding maturity month)
 all_settlement_months = []
-# Set initial value different from contract rate for immediate P&L display
+# Set initial value to 0.0
 initial_rate_for_hypo = 0.0
 
 while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_month.replace(day=1):
@@ -200,7 +200,7 @@ edited_df = st.sidebar.data_editor(
         ),
         "예상 통화선도환율": st.column_config.NumberColumn(
             "예상 통화선도환율",
-            min_value=0.01,
+            min_value=0.0,
             format="%.2f",
             help="이 달의 예상 통화선도환율을 입력하세요."
         ),
@@ -213,7 +213,8 @@ edited_df = st.sidebar.data_editor(
 if not edited_df.empty:
     for _, row in edited_df.iterrows():
         updated_rate = row['예상 통화선도환율']
-        st.session_state.hypothetical_rates[row['month_key']] = updated_rate if updated_rate is not None else contract_rate + 20
+        # Set the value to 0.0 if the user deletes it (it becomes None)
+        st.session_state.hypothetical_rates[row['month_key']] = updated_rate if updated_rate is not None else 0.0
 
 # Main screen
 st.title("📈 파생상품 손익효과 분석 대시보드")
