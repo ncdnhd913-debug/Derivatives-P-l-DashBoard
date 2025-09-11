@@ -121,8 +121,9 @@ def get_last_day_of_month(year, month):
     return calendar.monthrange(year, month)[1]
 
 # 결산연월을 계약 기간 내에서만 선택 가능하도록 수정
-# "결산연월" 하위 제목 중복 문제를 해결하기 위해 Markdown 대신 Subheader를 사용
-st.sidebar.subheader("결산연월 및 예상 환율")
+# "결산연월" 하위 제목 중복 문제를 해결하기 위해 st.subheader 대신 st.markdown으로 제목을 변경
+st.sidebar.markdown("### 결산연월 및 예상 환율")
+st.sidebar.markdown("---")
 
 # 계약 시작일과 만기일을 기준으로 모든 월말 날짜 목록 생성
 all_settlement_dates = []
@@ -155,7 +156,6 @@ st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isofor
 
 
 # --- 월말별 예상 통화선도환율 입력란을 Data Editor로 변경 ---
-# subheader 대신 markdown을 사용하여 help 기능을 추가
 st.sidebar.markdown(
     "시나리오 분석을 위해 각 월말의 예상 통화선도환율을 입력하세요.",
     help="더블클릭하거나 탭하여 값을 수정할 수 있습니다."
@@ -192,7 +192,7 @@ edited_df = st.sidebar.data_editor(
         ),
         "예상 통화선도환율": st.column_config.NumberColumn(
             "예상 통화선도환율",
-            min_value=0.0,
+            min_value=0.01, # 0보다 큰 값으로 변경
             format="%.2f",
             help="이 달의 예상 통화선도환율을 입력하세요."
         ),
@@ -245,6 +245,7 @@ else:
         settlement_rate_key = f"{settlement_year}-{settlement_month}"
         settlement_forward_rate_for_calc = st.session_state.hypothetical_rates.get(settlement_rate_key, 0)
 
+        # 예상 환율이 0보다 큰지 다시 한 번 확인
         if settlement_forward_rate_for_calc <= 0:
             st.warning("선택된 결산연월에 대한 '예상 통화선도환율'을 0보다 크게 입력해주세요.")
         else:
@@ -256,7 +257,7 @@ else:
                 valuation_rate_diff_text = f"{settlement_forward_rate_for_calc:,.2f} - {contract_rate:,.2f}"
 
             # 평가손익 결과 표시
-            st.header(f"{settlement_month}월 결산시점 파생상품 평가손익 분석 결과") # 수정된 부분
+            st.header(f"{settlement_month}월 결산시점 파생상품 평가손익 분석 결과")
             st.write("선택된 결산일에 예상 환율을 기준으로 계산한 평가손익입니다.")
             col_valuation_result, col_valuation_diff = st.columns(2)
             with col_valuation_result:
