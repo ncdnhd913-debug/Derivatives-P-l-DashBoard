@@ -337,11 +337,13 @@ else:
     # Altair 차트 생성 및 표시
     st.write("각 월에 입력된 예상 통화선도환율을 기준으로 계산된 손익 시나리오입니다.")
     
-    # 막대 그래프 너비 줄이고 입체감 추가
-    chart = alt.Chart(df_scenario).mark_bar(
-        size=20, # 막대 너비 조절
-        strokeWidth=1, # 입체감을 위한 선 두께
-        stroke="#FFFFFF" # 흰색 선으로 입체감 표현
+    # --- 수정된 부분: 더 깔끔한 그래프 구현 ---
+    
+    # 막대 그래프 (색상 조건 포함)
+    bar_chart = alt.Chart(df_scenario).mark_bar(
+        size=35, # 막대 너비 조절
+        cornerRadiusTopLeft=5, # 둥근 모서리 추가
+        cornerRadiusTopRight=5
     ).encode(
         x=alt.X(
             '결산연월',
@@ -361,8 +363,8 @@ else:
         # 총 손익 값에 따라 색상 변경
         color=alt.condition(
             alt.datum['총 손익 (백만원)'] >= 0,
-            alt.value('#007bff'), # 이익일 경우 파란색
-            alt.value('#dc3545')  # 손실일 경우 빨간색
+            alt.value('#3498db'), # 이익일 경우 파란색
+            alt.value('#e74c3c')  # 손실일 경우 빨간색
         ),
         tooltip=[
             alt.Tooltip('결산연월', title='결산연월'),
@@ -370,8 +372,20 @@ else:
             alt.Tooltip('평가손익 (백만원)', title='평가손익 (백만원)', format=',.2f'),
             alt.Tooltip('거래손익 (백만원)', title='거래손익 (백만원)', format=',.2f')
         ]
-    ).properties(
-        title='월별 총 손익 시나리오'
     )
 
-    st.altair_chart(chart, use_container_width=True)
+    # 손익 기준선(0)에 수평선 추가
+    zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(
+        color='#7f8c8d', # 회색
+        strokeWidth=2,
+        strokeDash=[5, 5] # 점선
+    ).encode(
+        y='y:Q'
+    )
+
+    # 차트를 결합하고 속성 설정
+    final_chart = (bar_chart + zero_line).properties(
+        title='월별 총 손익 시나리오'
+    ).interactive()
+
+    st.altair_chart(final_chart, use_container_width=True)
