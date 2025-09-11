@@ -102,21 +102,37 @@ if st.sidebar.button("손익 분석 실행"):
         # 손익 계산
         profit_loss = (spot_rate - forward_rate) * amount_usd
 
-        # 결과 디스플레이
-        st.subheader("손익 효과 분석 결과")
+        # ---
+        # 결산시점 평가손익 분석
+        st.header("결산시점 평가손익 분석 결과")
+        st.write("결산일에 시장환율을 기준으로 계산한 평가손익입니다.")
 
-        col_result, col_rate_diff = st.columns(2)
+        col_valuation_result, col_valuation_diff = st.columns(2)
+        with col_valuation_result:
+            if profit_loss >= 0:
+                st.metric(label="평가손익 (원)", value=f"{profit_loss:,.0f}원", delta="이익")
+            else:
+                st.metric(label="평가손익 (원)", value=f"{profit_loss:,.0f}원", delta="손실", delta_color="inverse")
+        with col_valuation_diff:
+            st.metric(label="환율 차이 (원)", value=f"{spot_rate - forward_rate:,.2f}")
 
-        with col_result:
+        st.markdown(f"**총 평가손익:** ${amount_usd:,.0f} * ({spot_rate - forward_rate:,.2f}) = {profit_loss:,.0f}원")
+
+        # ---
+        # 계약만료시점 손익 분석
+        st.header("계약만료시점 손익 분석 결과")
+        st.write("계약 만료일에 시장환율을 기준으로 계산한 실제 손익입니다.")
+
+        col_expiry_result, col_expiry_diff = st.columns(2)
+        with col_expiry_result:
             if profit_loss >= 0:
                 st.metric(label="총 손익 (원)", value=f"{profit_loss:,.0f}원", delta="이익")
             else:
                 st.metric(label="총 손익 (원)", value=f"{profit_loss:,.0f}원", delta="손실", delta_color="inverse")
+        with col_expiry_diff:
+            st.metric(label="환율 차이 (원)", value=f"{spot_rate - forward_rate:,.2f}")
 
-        with col_rate_diff:
-            st.metric(label="환율 차이 (원)", value=f"{spot_rate - forward_rate:.2f}")
+        st.markdown(f"**총 손익:** ${amount_usd:,.0f} * ({spot_rate - forward_rate:,.2f}) = {profit_loss:,.0f}원")
 
-        st.markdown(f"**환율 차이($/원):** ${spot_rate} - ${forward_rate} = ${spot_rate - forward_rate:.2f}")
-        st.markdown(f"**총 손익:** ${amount_usd:,.0f} * ({spot_rate - forward_rate:.2f}) = {profit_loss:,.0f}원")
     else:
         st.warning("거래금액, 통화선도환율, 현물환율을 모두 0보다 크게 입력해주세요.")
