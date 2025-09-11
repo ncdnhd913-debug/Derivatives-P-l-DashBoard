@@ -306,15 +306,22 @@ if st.sidebar.button("손익 분석 실행"):
                 current_month_chart = 1
                 current_year_chart += 1
         
-        df_scenario = pd.DataFrame(scenario_data)
-
-        # 데이터프레임을 가로로 변환하고 첫 번째 행을 컬럼 헤더로 사용
-        df_transposed = df_scenario.set_index('결산연월').T
-        df_transposed.index.name = '구분'
-        
-        # 그래프 대신 테이블로 표시
+        # st.columns를 사용하여 가로로 배치
         st.write("각 월에 입력된 예상 통화선도환율을 기준으로 계산된 손익 시나리오입니다.")
-        st.dataframe(df_transposed, use_container_width=True)
+        
+        num_cols = 3 # 한 줄에 표시할 컬럼 수
+        cols = st.columns(num_cols)
+        
+        for i, data_point in enumerate(scenario_data):
+            with cols[i % num_cols]:
+                st.markdown(f"**{data_point['결산연월']}**")
+                
+                # 손익에 따라 색상과 아이콘 변경
+                value = data_point['총 손익 (백만원)']
+                if value >= 0:
+                    st.metric(label="총 손익 (백만원)", value=f"{value:,.2f}백만원", delta="이익")
+                else:
+                    st.metric(label="총 손익 (백만원)", value=f"{value:,.2f}백만원", delta="손실", delta_color="inverse")
 
     else:
         st.warning("모든 필수 입력값(거래금액, 계약환율, 만기 시점 현물환율)을 모두 0보다 크게 입력해주세요.")
