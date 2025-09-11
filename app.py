@@ -119,7 +119,11 @@ st.sidebar.subheader("결산연월")
 col_settlement_year, col_settlement_month = st.sidebar.columns(2)
 
 # 계약 시작일과 만기일을 기준으로 선택 가능한 연도 목록 생성
-possible_years = list(range(start_date.year, end_date.year + 1))
+# 만기일이 속한 달의 마지막 날까지 선택 가능하도록 수정
+last_day_of_end_month = get_last_day_of_month(end_date.year, end_date.month)
+end_of_contract_month = date(end_date.year, end_date.month, last_day_of_end_month)
+
+possible_years = list(range(start_date.year, end_of_contract_month.year + 1))
 year_index = possible_years.index(date.today().year) if date.today().year in possible_years else 0
 
 with col_settlement_year:
@@ -130,12 +134,12 @@ with col_settlement_year:
     )
 
 # 선택된 연도에 따라 선택 가능한 월 목록 동적 생성
-if settlement_year == start_date.year and settlement_year == end_date.year:
-    possible_months = list(range(start_date.month, end_date.month + 1))
+if settlement_year == start_date.year and settlement_year == end_of_contract_month.year:
+    possible_months = list(range(start_date.month, end_of_contract_month.month + 1))
 elif settlement_year == start_date.year:
     possible_months = list(range(start_date.month, 13))
-elif settlement_year == end_date.year:
-    possible_months = list(range(1, end_date.month + 1))
+elif settlement_year == end_of_contract_month.year:
+    possible_months = list(range(1, end_of_contract_month.month + 1))
 else:
     possible_months = list(range(1, 13))
     
@@ -176,8 +180,8 @@ st.write("왼쪽 사이드바에서 계약 정보를 입력하고 **'손익 분�
 # 손익 분석 실행 버튼
 if st.sidebar.button("손익 분석 실행"):
     # 결산일이 계약 기간 내에 있는지 확인
-    if settlement_date_corrected < start_date or settlement_date_corrected > end_date:
-        st.error("결산일은 계약 시작일과 종료일 사이여야 합니다. 결산연월을 다시 선택해주세요.")
+    if settlement_date_corrected < start_date or settlement_date_corrected > end_of_contract_month:
+        st.error("결산일은 계약 시작일과 만기일이 속한 달의 마지막 날 사이여야 합니다. 결산연월을 다시 선택해주세요.")
     # 모든 필수 입력값이 유효한지 확인
     elif contract_rate > 0 and amount_usd > 0 and settlement_spot_rate > 0 and end_spot_rate > 0 and settlement_forward_rate > 0:
         # 결산시점 평가손익 계산 로직 (결산 시점 통화선도환율과 계약환율의 차이로 계산)
