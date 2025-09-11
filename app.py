@@ -435,8 +435,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                              value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                              var_name='손익 종류', value_name='손익 (백만원)')
+                             value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                             var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -488,12 +488,18 @@ else:
     elif not has_fx_rate_data:
         st.info("업로드된 파일에 '환율' 데이터가 없어 그래프를 표시할 수 없습니다.")
     else:
-        # 외화 환산 데이터에서 월별 환율 평균을 추출합니다.
+        # 계약 기간에 해당하는 월만 필터링하기 위한 월별 문자열 목록 생성
+        contract_month_strings = [d.strftime('%Y년 %m월') for d in all_settlement_dates]
+
+        # 외화 환산 데이터에서 월별 환율 평균을 추출하고, 계약 기간에 해당하는 데이터만 남깁니다.
         df_monthly_rates_from_ledger = df_ledger.groupby(df_ledger['회계일'].dt.to_period('M'))['환율'].mean().reset_index()
         df_monthly_rates_from_ledger.columns = ['회계연월', '환율']
-        df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
         # Altair에서 사용할 수 있도록 Period를 Datetime으로 변환
         df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계연월'].dt.to_timestamp().dt.strftime('%Y년 %m월')
+        
+        # 계약 기간 내의 월에 해당하는 데이터만 필터링
+        df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(contract_month_strings)]
+        df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
 
         # 파생상품 계약 만기까지의 모든 월을 포함하는 데이터프레임 생성
         all_months_df = pd.DataFrame({'회계연월': pd.to_datetime(pd.period_range(start=f'{start_date.year}-{start_date.month}', end=f'{end_date.year}-{end_date.month}', freq='M').to_timestamp())})
