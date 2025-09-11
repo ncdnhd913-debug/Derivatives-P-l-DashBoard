@@ -337,8 +337,12 @@ else:
     # Altair 차트 생성 및 표시
     st.write("각 월에 입력된 예상 통화선도환율을 기준으로 계산된 손익 시나리오입니다.")
     
-    # 막대 그래프로 변경 및 손익에 따라 색상 조건 추가
-    chart = alt.Chart(df_scenario).mark_bar().encode(
+    # 막대 그래프 너비 줄이고 입체감 추가
+    chart = alt.Chart(df_scenario).mark_bar(
+        size=20, # 막대 너비 조절
+        strokeWidth=1, # 입체감을 위한 선 두께
+        stroke="#FFFFFF" # 흰색 선으로 입체감 표현
+    ).encode(
         x=alt.X(
             '결산연월',
             sort=date_options,
