@@ -323,8 +323,6 @@ else:
             
             monthly_fx_pl = df_ledger.groupby('month_key')['fx_pl'].sum().to_dict()
             
-            st.info(f"업로드된 파일에서 계산된 월별 외화환산손익: {monthly_fx_pl}")
-
         except Exception as e:
             st.error(f"파일을 처리하는 중 오류가 발생했습니다: {e}")
             st.stop()
