@@ -184,7 +184,7 @@ if st.sidebar.button("손익 분석 실행"):
         st.error("결산일은 계약 시작일과 만기일이 속한 달의 마지막 날 사이여야 합니다. 결산연월을 다시 선택해주세요.")
     # 모든 필수 입력값이 유효한지 확인
     elif contract_rate > 0 and amount_usd > 0 and settlement_spot_rate > 0 and end_spot_rate > 0 and settlement_forward_rate > 0:
-        # 결산시점 평가손익 계산 로직 (결산 시점 통화선도환율과 계약환율의 차이로 계산)
+        # 손익 계산 로직
         if transaction_type == "선매도":
             valuation_profit_loss = (contract_rate - settlement_forward_rate) * amount_usd
             expiry_profit_loss = (contract_rate - end_spot_rate) * amount_usd
@@ -196,37 +196,38 @@ if st.sidebar.button("손익 분석 실행"):
             valuation_rate_diff_text = f"{settlement_forward_rate:,.2f} - {contract_rate:,.2f}"
             expiry_rate_diff_text = f"{end_spot_rate:,.2f} - {contract_rate:,.2f}"
 
-        # ---
-        # 결산시점 평가손익 분석
-        st.header("결산시점 파생상품 평가손익 분석 결과")
-        st.write("결산일에 시장환율을 기준으로 계산한 평가손익입니다.")
+        # 결산연월이 만기일과 동일한 달인지 확인
+        if settlement_year == end_date.year and settlement_month == end_date.month:
+            # 계약만료시점 손익 분석
+            st.header("계약만료시점 손익 분석 결과")
+            st.write("계약 만료일에 시장환율을 기준으로 계산한 실제 손익입니다.")
 
-        col_valuation_result, col_valuation_diff = st.columns(2)
-        with col_valuation_result:
-            if valuation_profit_loss >= 0:
-                st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="이익")
-            else:
-                st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
-        with col_valuation_diff:
-            st.metric(label="환율 차이 (원)", value=f"{settlement_forward_rate - contract_rate:,.2f}")
+            col_expiry_result, col_expiry_diff = st.columns(2)
+            with col_expiry_result:
+                if expiry_profit_loss >= 0:
+                    st.metric(label="파생상품 거래손익 (원)", value=f"{expiry_profit_loss:,.0f}원", delta="이익")
+                else:
+                    st.metric(label="파생상품 거래손익 (원)", value=f"{expiry_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
+            with col_expiry_diff:
+                st.metric(label="환율 차이 (원)", value=f"{end_spot_rate - contract_rate:,.2f}")
 
-        st.markdown(f"**총 파생상품 평가손익:** ${amount_usd:,.0f} * ({valuation_rate_diff_text}) = {valuation_profit_loss:,.0f}원")
+            st.markdown(f"**총 파생상품 거래손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
 
-        # ---
-        # 계약만료시점 손익 분석
-        st.header("계약만료시점 손익 분석 결과")
-        st.write("계약 만료일에 시장환율을 기준으로 계산한 실제 손익입니다.")
+        else:
+            # 결산시점 평가손익 분석
+            st.header("결산시점 파생상품 평가손익 분석 결과")
+            st.write("결산일에 시장환율을 기준으로 계산한 평가손익입니다.")
 
-        col_expiry_result, col_expiry_diff = st.columns(2)
-        with col_expiry_result:
-            if expiry_profit_loss >= 0:
-                st.metric(label="파생상품 거래손익 (원)", value=f"{expiry_profit_loss:,.0f}원", delta="이익")
-            else:
-                st.metric(label="파생상품 거래손익 (원)", value=f"{expiry_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
-        with col_expiry_diff:
-            st.metric(label="환율 차이 (원)", value=f"{end_spot_rate - contract_rate:,.2f}")
+            col_valuation_result, col_valuation_diff = st.columns(2)
+            with col_valuation_result:
+                if valuation_profit_loss >= 0:
+                    st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="이익")
+                else:
+                    st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
+            with col_valuation_diff:
+                st.metric(label="환율 차이 (원)", value=f"{settlement_forward_rate - contract_rate:,.2f}")
 
-        st.markdown(f"**총 파생상품 거래손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
+            st.markdown(f"**총 파생상품 평가손익:** ${amount_usd:,.0f} * ({valuation_rate_diff_text}) = {valuation_profit_loss:,.0f}원")
 
     else:
         st.warning("모든 필수 입력값(거래금액, 계약환율, 결산 시점 현물환율, 결산 시점 통화선도환율, 만기 시점 현물환율)을 모두 0보다 크게 입력해주세요.")
