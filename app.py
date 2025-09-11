@@ -220,20 +220,22 @@ if not edited_df.empty:
 st.title("📈 파생상품 손익효과 분석 대시보드")
 st.write("왼쪽 사이드바에서 계약 정보 및 결산일자를 입력하시면 실시간으로 분석 결과가 표시됩니다.")
 
-# Check if all required inputs are valid
-error_messages = []
+# Check for zero/invalid values
+zero_value_errors = []
 if not amount_usd > 0:
-    error_messages.append("거래금액($)")
+    zero_value_errors.append("거래금액($)")
 if not contract_rate > 0:
-    error_messages.append("계약환율")
+    zero_value_errors.append("계약환율")
 if not start_spot_rate > 0:
-    error_messages.append("시작 시점 현물환율")
+    zero_value_errors.append("시작 시점 현물환율")
 if not end_spot_rate > 0:
-    error_messages.append("만기 시점 현물환율")
+    zero_value_errors.append("만기 시점 현물환율")
 
-if error_messages:
-    # Display error message and stop further execution
-    st.warning(f"다음 항목의 값을 0보다 크게 입력해주세요: {', '.join(error_messages)}")
+if zero_value_errors:
+    st.warning(f"다음 항목의 값을 0보다 크게 입력해주세요: {', '.join(zero_value_errors)}")
+# Add the new validation logic for contract rate vs. start spot rate
+elif contract_rate > start_spot_rate:
+    st.error("한미 금리차에 따른 스왑포인트를 음수로 가정하여, 계약환율은 계약 시작시점의 환율보다 낮아야합니다.")
 else:
     settlement_year = settlement_date_corrected.year
     settlement_month = settlement_date_corrected.month
