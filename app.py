@@ -183,7 +183,7 @@ while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_
 
     # 동적으로 환율 입력 필드 생성
     st.session_state.hypothetical_rates[month_key] = st.sidebar.number_input(
-        label=f"{current_year_scenario}년 {current_month_scenario}월 통화선도환율",
+        label=f"{current_year_scenario}년 {current_month_scenario}월말 통화선도환율",
         min_value=0.0,
         value=st.session_state.hypothetical_rates[month_key],
         format="%.2f",
