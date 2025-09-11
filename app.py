@@ -217,11 +217,6 @@ if not edited_df.empty:
         # Set the value to 0.0 if the user deletes it (it becomes None)
         st.session_state.hypothetical_rates[row['month_key']] = updated_rate if updated_rate is not None else 0.0
 
-# --- Add file uploader for FX valuation
-st.sidebar.markdown("---")
-st.sidebar.subheader("외화환산손익 데이터")
-uploaded_file = st.sidebar.file_uploader("계정별원장(.xlsx, .xls) 업로드", type=["xlsx", "xls"], help="외화환산이익/손실을 포함하는 계정별원장 엑셀 파일을 업로드하세요.")
-
 # Main screen
 st.title("📈 파생상품 손익효과 분석 대시보드")
 st.write("왼쪽 사이드바에서 계약 정보 및 결산일자를 입력하시면 실시간으로 분석 결과가 표시됩니다.")
@@ -302,30 +297,50 @@ else:
         st.markdown(f"**총 파생상품 거래손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
 
     # --- Process uploaded file for FX P&L
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("외화환산손익 데이터")
+    uploaded_file = st.sidebar.file_uploader("계정별원장(.xlsx, .xls) 업로드", type=["xlsx", "xls"], help="외화환산이익/손실을 포함하는 계정별원장 엑셀 파일을 업로드하세요.")
+    
     monthly_fx_pl = {}
     if uploaded_file is not None:
         try:
-            # 엑셀 파일의 헤더를 인식하지 못하는 문제를 해결하기 위해,
-            # 헤더가 첫 번째 행(기본값)이 아닐 경우를 대비해 두 번째 행을 시도합니다.
-            try:
-                df_ledger = pd.read_excel(uploaded_file)
-                df_ledger.columns = [col.strip() for col in df_ledger.columns]
-                # 필수 열이 없으면 header=1로 다시 시도
-                if not all(col in df_ledger.columns for col in ['회계일', '계정명', '차변', '대변']):
-                    df_ledger = pd.read_excel(uploaded_file, header=1)
-                    df_ledger.columns = [col.strip() for col in df_ledger.columns]
-            except Exception:
-                # 첫 번째와 두 번째 행 모두 실패하면 오류 메시지 출력
-                st.error("업로드한 파일의 헤더를 인식할 수 없습니다. '회계일', '계정명', '차변', '대변' 열이 첫 번째 또는 두 번째 행에 올바르게 포함되어 있는지 확인해주세요.")
-                st.stop()
-
-            # 여전히 필요한 열이 모두 없는 경우 최종적으로 오류를 띄웁니다.
-            required_columns = ['회계일', '계정명', '차변', '대변']
-            if not all(col in df_ledger.columns for col in required_columns):
-                st.error(f"업로드한 파일에 필요한 열('회계일', '계정명', '차변', '대변')이 모두 포함되어 있는지 확인해주세요.")
+            # Step 1: Find the correct header row
+            # We'll read the first 50 rows to find the row that contains all the required column names.
+            required_columns_strict = ['회계일', '계정명', '차변', '대변']
+            header_row = None
+            
+            # Read the file with no header to inspect the data
+            df_temp = pd.read_excel(uploaded_file, header=None, nrows=50)
+            
+            # Find the row that contains all required columns (case-insensitive and with stripping)
+            for i in range(len(df_temp)):
+                row_values = [str(x).strip() for x in df_temp.iloc[i]]
+                found_all = True
+                for col in required_columns_strict:
+                    if col not in row_values:
+                        found_all = False
+                        break
+                if found_all:
+                    header_row = i
+                    break
+            
+            if header_row is None:
+                st.error("업로드한 파일에서 '회계일', '계정명', '차변', '대변' 열을 찾을 수 없습니다. 열 이름의 철자를 확인하거나, 첫 번째 행이 아닌 경우에도 올바르게 인식되도록 수정했습니다.")
                 st.stop()
             
-            # The new line below cleans up whitespace in the '계정명' data itself.
+            # Step 2: Read the full file using the identified header row
+            df_ledger = pd.read_excel(uploaded_file, header=header_row)
+            df_ledger.columns = [col.strip() for col in df_ledger.columns]
+
+            # Re-map columns to the expected names
+            df_ledger.rename(columns={
+                '회계일': '회계일',
+                '계정명': '계정명',
+                '차변': '차변',
+                '대변': '대변'
+            }, inplace=True)
+            
+            # Now, proceed with the original logic
             df_ledger['계정명'] = df_ledger['계정명'].astype(str).str.strip()
             df_ledger['회계일'] = pd.to_datetime(df_ledger['회계일'])
 
@@ -427,4 +442,3 @@ else:
     ).interactive()
 
     st.altair_chart(bar_chart, use_container_width=True)
-    # --- 수정된 부분 끝
