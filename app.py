@@ -217,6 +217,15 @@ if not edited_df.empty:
         # Set the value to 0.0 if the user deletes it (it becomes None)
         st.session_state.hypothetical_rates[row['month_key']] = updated_rate if updated_rate is not None else 0.0
 
+# --- 외화환산데이터 입력 부분을 사이드바 맨 아래로 이동 ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("외화환산손익 데이터")
+uploaded_file = st.sidebar.file_uploader(
+    "계정별원장(.xlsx, .xls) 업로드",
+    type=["xlsx", "xls"],
+    help="외화환산이익/손실을 포함하는 계정별원장 엑셀 파일을 업로드하세요."
+)
+
 # Main screen
 st.title("📈 파생상품 손익효과 분석 대시보드")
 st.write("왼쪽 사이드바에서 계약 정보 및 결산일자를 입력하시면 실시간으로 분석 결과가 표시됩니다.")
@@ -298,9 +307,7 @@ else:
 
     # --- Process uploaded file for FX P&L
     st.markdown("---")
-    st.subheader("외화환산손익 데이터")
-    uploaded_file = st.file_uploader("계정별원장(.xlsx, .xls) 업로드", type=["xlsx", "xls"], help="외화환산이익/손실을 포함하는 계정별원장 엑셀 파일을 업로드하세요.")
-    
+    st.subheader("외화환산손익 데이터 분석")
     monthly_fx_pl = {}
     if uploaded_file is not None:
         try:
@@ -358,6 +365,8 @@ else:
         except Exception as e:
             st.error(f"파일을 처리하는 중 오류가 발생했습니다. 파일 형식이 올바른지 확인해주세요. 오류 메시지: {e}")
             st.stop()
+    else:
+        st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드해 주세요.")
 
     # --- Display P&L scenario with a chart
     st.markdown("---")
@@ -404,8 +413,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                        value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                        var_name='손익 종류', value_name='손익 (백만원)')
+                         value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                         var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
