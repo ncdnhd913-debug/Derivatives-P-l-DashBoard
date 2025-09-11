@@ -165,14 +165,22 @@ current_month_scenario = start_date.month
 
 # 모든 결산월 리스트 생성 (만기월 제외)
 all_settlement_months = []
+# 사용자가 계약환율을 입력하지 않았을 경우 기본값 설정
+initial_rate_for_hypo = contract_rate if contract_rate > 0 else 1300.0
+
 while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_month.replace(day=1):
     is_expiry_month_scenario = (current_year_scenario == end_date.year and current_month_scenario == end_date.month)
     if not is_expiry_month_scenario:
         month_key = f"{current_year_scenario}-{current_month_scenario}"
+        
+        # --- 수정된 부분: 세션 상태에 값이 없으면 계약환율로 초기화 ---
+        if month_key not in st.session_state.hypothetical_rates:
+            st.session_state.hypothetical_rates[month_key] = initial_rate_for_hypo
+        
         all_settlement_months.append({
             # 컬럼명과 값 변경
             "결산일자": f"{current_year_scenario}년 {current_month_scenario}월말",
-            "예상 통화선도환율": st.session_state.hypothetical_rates.get(month_key, 0.0),
+            "예상 통화선도환율": st.session_state.hypothetical_rates.get(month_key),
             "month_key": month_key # 내부 사용을 위한 키
         })
     current_month_scenario += 1
@@ -307,9 +315,11 @@ else:
         expiry_pl_millions = 0
         
         if is_expiry_month_chart:
+            # 만기월인 경우, 만기 시점 환율에 따른 거래손익 계산
             total_pl = expiry_profit_loss
             expiry_pl_millions = total_pl / 1_000_000
         else:
+            # 만기월이 아닌 경우, 월말 예상 통화선도환율에 따른 평가손익 계산
             hypothetical_forward_rate = st.session_state.hypothetical_rates.get(month_key_chart, 0)
             if hypothetical_forward_rate > 0: # 예상 환율이 입력되었을 때만 계산
                 if transaction_type == "선매도":
