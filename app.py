@@ -233,7 +233,7 @@ if st.sidebar.button("손익 분석 실행"):
         # ---
         # 수정된 기능: 결산 가능 연월을 X축으로 하는 손익 시나리오 그래프
         st.markdown("---")
-        st.subheader("📊 기간별 예상 평가손익 시나리오")
+        st.subheader("📊 기간별 예상 총 손익 시나리오")
         
         # 시나리오 분석을 위한 데이터프레임 생성
         scenario_data = []
@@ -246,7 +246,7 @@ if st.sidebar.button("손익 분석 실행"):
             else: # 선매수
                 hypothetical_pl = (settlement_forward_rate - contract_rate) * amount_usd
             
-            scenario_data.append({"결산연월": f"{current_year}년 {current_month}월", "예상 평가손익 (원)": hypothetical_pl})
+            scenario_data.append({"결산연월": f"{current_year}년 {current_month}월", "총 손익 (원)": hypothetical_pl})
 
             current_month += 1
             if current_month > 12:
@@ -256,8 +256,8 @@ if st.sidebar.button("손익 분석 실행"):
         df_scenario = pd.DataFrame(scenario_data)
 
         # 그래프 표시
-        st.write(f"결산 시점 통화선도환율({settlement_forward_rate:,.2f}원)이 계약 만기일까지 유지될 경우 월별 예상 평가손익을 보여줍니다.")
-        st.line_chart(df_scenario, x="결산연월", y="예상 평가손익 (원)")
+        st.write(f"결산 시점 통화선도환율({settlement_forward_rate:,.2f}원)이 계약 만기일까지 유지될 경우 월별 예상 총 손익을 보여줍니다.")
+        st.line_chart(df_scenario, x="결산연월", y="총 손익 (원)")
 
 
     else:
