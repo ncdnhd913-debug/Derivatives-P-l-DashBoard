@@ -173,33 +173,27 @@ while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_
         current_month_scenario = 1
         current_year_scenario += 1
 
-# 2열로 환율 입력 필드 가로 배치
-num_cols = 2
-for i in range(0, len(all_settlement_months), num_cols):
-    cols = st.sidebar.columns(num_cols)
-    for j in range(num_cols):
-        if i + j < len(all_settlement_months):
-            year_to_process, month_to_process = all_settlement_months[i + j]
-            month_key = f"{year_to_process}-{month_to_process}"
-            
-            # 만기월이면 입력 필드 생성 건너뛰기
-            is_expiry_month_scenario = (year_to_process == end_date.year and month_to_process == end_date.month)
-            if is_expiry_month_scenario:
-                continue
+# 단일 열로 환율 입력 필드 순서대로 배치
+for year_to_process, month_to_process in all_settlement_months:
+    month_key = f"{year_to_process}-{month_to_process}"
+    
+    # 만기월이면 입력 필드 생성 건너뛰기
+    is_expiry_month_scenario = (year_to_process == end_date.year and month_to_process == end_date.month)
+    if is_expiry_month_scenario:
+        continue
 
-            # 세션 상태에 값이 없으면 0으로 초기화
-            if month_key not in st.session_state.hypothetical_rates:
-                st.session_state.hypothetical_rates[month_key] = 0.0
+    # 세션 상태에 값이 없으면 0으로 초기화
+    if month_key not in st.session_state.hypothetical_rates:
+        st.session_state.hypothetical_rates[month_key] = 0.0
 
-            # 동적으로 환율 입력 필드 생성
-            with cols[j]:
-                st.session_state.hypothetical_rates[month_key] = st.number_input(
-                    label=f"{year_to_process}년 {month_to_process}월말",
-                    min_value=0.0,
-                    value=st.session_state.hypothetical_rates[month_key],
-                    format="%.2f",
-                    key=f"rate_{month_key}"
-                )
+    # 동적으로 환율 입력 필드 생성
+    st.session_state.hypothetical_rates[month_key] = st.number_input(
+        label=f"{year_to_process}년 {month_to_process}월말",
+        min_value=0.0,
+        value=st.session_state.hypothetical_rates[month_key],
+        format="%.2f",
+        key=f"rate_{month_key}"
+    )
 
 
 # 메인 화면 구성
