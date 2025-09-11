@@ -308,6 +308,9 @@ else:
             # Ensure column names are correct and handle spaces
             df_ledger.columns = [col.strip() for col in df_ledger.columns]
             
+            # --- The new line below cleans up whitespace in the '계정명' data itself.
+            df_ledger['계정명'] = df_ledger['계정명'].str.strip()
+
             # Calculate FX P&L
             df_ledger['회계일'] = pd.to_datetime(df_ledger['회계일'])
             df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%#m')
@@ -320,6 +323,8 @@ else:
             
             monthly_fx_pl = df_ledger.groupby('month_key')['fx_pl'].sum().to_dict()
             
+            st.info(f"업로드된 파일에서 계산된 월별 외화환산손익: {monthly_fx_pl}")
+
         except Exception as e:
             st.error(f"파일을 처리하는 중 오류가 발생했습니다: {e}")
             st.stop()
