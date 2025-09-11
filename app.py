@@ -435,8 +435,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                              value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                              var_name='손익 종류', value_name='손익 (백만원)')
+                             value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                             var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -488,27 +488,31 @@ else:
     elif not has_fx_rate_data:
         st.info("업로드된 파일에 '환율' 데이터가 없어 그래프를 표시할 수 없습니다.")
     else:
-        # 외화 환산 데이터에서 환율 데이터 추출
-        df_fx_rates_from_ledger = df_ledger[['회계일', '환율']].copy()
-        df_fx_rates_from_ledger['환율 종류'] = '환율'
-        
+        # 외화 환산 데이터에서 월별 환율 평균을 추출하고 월별 키를 추가합니다.
+        df_monthly_rates_from_ledger = df_ledger.groupby(pd.PeriodIndex(df_ledger['회계일'], freq='M'))['환율'].mean().reset_index()
+        df_monthly_rates_from_ledger.columns = ['회계연월', '환율']
+        df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
+        # Altair에서 사용할 수 있도록 Period를 Datetime으로 변환
+        df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계연월'].dt.to_timestamp()
+
+        # 파생상품 계약 만기까지의 모든 월을 포함하는 데이터프레임 생성
+        all_months_df = pd.DataFrame({'회계연월': pd.to_datetime(pd.period_range(start=f'{start_date.year}-{start_date.month}', end=f'{end_date.year}-{end_date.month}', freq='M').to_timestamp())})
+
         # 계약환율 데이터를 추가하기 위한 데이터프레임 생성
-        df_contract_rate_data = pd.DataFrame({
-            '회계일': df_ledger['회계일'],
-            '환율': [contract_rate] * len(df_ledger),
-            '환율 종류': '계약환율'
-        })
+        df_contract_rate_data = all_months_df.copy()
+        df_contract_rate_data['환율'] = contract_rate
+        df_contract_rate_data['환율 종류'] = '계약환율'
         
         # 두 데이터프레임을 합쳐서 차트에 사용할 데이터프레임 생성
-        df_rates_for_chart = pd.concat([df_fx_rates_from_ledger, df_contract_rate_data], ignore_index=True)
+        df_rates_for_chart = pd.concat([df_monthly_rates_from_ledger, df_contract_rate_data], ignore_index=True)
 
         # Altair 꺾은선 그래프 생성
-        line_chart = alt.Chart(df_rates_for_chart).mark_line().encode(
-            x=alt.X('회계일', axis=alt.Axis(title='회계일자', format='%Y-%m-%d')),
+        line_chart = alt.Chart(df_rates_for_chart).mark_line(point=True).encode(
+            x=alt.X('회계연월:T', axis=alt.Axis(title='결산연월', format='%Y-%m')),
             y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f')),
             color=alt.Color('환율 종류', legend=alt.Legend(title="환율 종류")),
             tooltip=[
-                alt.Tooltip('회계일', title='회계일', format='%Y-%m-%d'),
+                alt.Tooltip('회계연월', title='결산연월', format='%Y-%m'),
                 alt.Tooltip('환율 종류', title='환율 종류'),
                 alt.Tooltip('환율', title='환율', format=',.2f')
             ]
