@@ -36,21 +36,21 @@ transaction_type = st.sidebar.selectbox(
     help="거래 종류에 따라 손익 계산 방식이 달라집니다."
 )
 
-# 1. Transaction amount ($) input field (initial value set to 1,000,000 for meaningful analysis)
+# 1. Transaction amount ($) input field (initial value set to 0.0 for meaningful analysis)
 amount_usd = st.sidebar.number_input(
     label="거래금액($)",
     min_value=0.0,
     format="%.2f",
-    value=1_000_000.0,
+    value=0.0,
     help="거래에 사용된 금액을 달러($) 단위로 입력하세요."
 )
 
-# 5. Contract rate (two decimal places) input field (initial value set to 1300 for meaningful analysis)
+# 5. Contract rate (two decimal places) input field (initial value set to 0.0 for meaningful analysis)
 contract_rate = st.sidebar.number_input(
     label="계약환율",
     min_value=0.0,
     format="%.2f",
-    value=1300.0,
+    value=0.0,
     help="계약 시점의 통화선도환율을 입력하세요."
 )
 
@@ -88,7 +88,7 @@ with col_start_rate:
         label="시작 시점 현물환율",
         min_value=0.0,
         format="%.2f",
-        value=1290.0,
+        value=0.0,
         help="계약 시작일의 현물환율을 입력하세요."
     )
 
@@ -116,7 +116,7 @@ with col_end_rate:
         label="만기 시점 현물환율",
         min_value=0.0,
         format="%.2f",
-        value=1320.0,
+        value=0.0,
         help="계약 만료일의 현물환율을 입력하세요."
     )
 
@@ -168,7 +168,7 @@ current_month_scenario = start_date.month
 # Create a list of all settlement months (excluding maturity month)
 all_settlement_months = []
 # Set initial value different from contract rate for immediate P&L display
-initial_rate_for_hypo = contract_rate + 20
+initial_rate_for_hypo = 0.0
 
 while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_month.replace(day=1):
     is_expiry_month_scenario = (current_year_scenario == end_date.year and current_month_scenario == end_date.month)
