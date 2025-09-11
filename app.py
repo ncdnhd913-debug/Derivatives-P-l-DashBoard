@@ -46,30 +46,29 @@ start_date = st.sidebar.date_input(
     help="계약 시작일을 선택하세요."
 )
 end_date = start_date + timedelta(days=tenor_days)
-st.sidebar.text_input(
-    label="계약 종료일자",
-    value=end_date.isoformat(),
-    disabled=True,
-    help="기일물에 따라 자동으로 계산된 계약 종료일자입니다."
-)
+st.sidebar.markdown("**계약 종료일자**")
+st.sidebar.info(end_date.isoformat())
 
 # 4. 결산연월(자동으로 말일로 설정)
 # 선택된 달의 마지막 날을 계산하는 함수
 def get_last_day_of_month(year, month):
     return calendar.monthrange(year, month)[1]
 
-# 연도와 월을 별도로 선택할 수 있도록 변경
+# 연도와 월을 별도로 선택할 수 있도록 같은 행에 배치
 st.sidebar.subheader("결산연월")
-settlement_year = st.sidebar.selectbox(
-    label="연도",
-    options=list(range(start_date.year, start_date.year + 10)),
-    index=0
-)
-settlement_month = st.sidebar.selectbox(
-    label="월",
-    options=list(range(1, 13)),
-    index=date.today().month - 1
-)
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    settlement_year = st.selectbox(
+        label="연도",
+        options=list(range(start_date.year, start_date.year + 10)),
+        index=0
+    )
+with col2:
+    settlement_month = st.selectbox(
+        label="월",
+        options=list(range(1, 13)),
+        index=date.today().month - 1
+    )
 
 # 선택된 연도와 월로 결산일 자동 설정 (해당 월의 마지막 날)
 settlement_date_corrected = date(settlement_year, settlement_month, get_last_day_of_month(settlement_year, settlement_month))
