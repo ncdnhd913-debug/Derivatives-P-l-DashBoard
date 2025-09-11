@@ -114,20 +114,38 @@ with col_end_rate:
 def get_last_day_of_month(year, month):
     return calendar.monthrange(year, month)[1]
 
-# 연도, 월을 같은 행에 배치
+# 결산연월을 계약 기간 내에서만 선택 가능하도록 수정
 st.sidebar.subheader("결산연월")
 col_settlement_year, col_settlement_month = st.sidebar.columns(2)
+
+# 계약 시작일과 만기일을 기준으로 선택 가능한 연도 목록 생성
+possible_years = list(range(start_date.year, end_date.year + 1))
+year_index = possible_years.index(date.today().year) if date.today().year in possible_years else 0
+
 with col_settlement_year:
     settlement_year = st.selectbox(
         label="연도",
-        options=list(range(start_date.year, start_date.year + 10)),
-        index=0
+        options=possible_years,
+        index=year_index
     )
+
+# 선택된 연도에 따라 선택 가능한 월 목록 동적 생성
+if settlement_year == start_date.year and settlement_year == end_date.year:
+    possible_months = list(range(start_date.month, end_date.month + 1))
+elif settlement_year == start_date.year:
+    possible_months = list(range(start_date.month, 13))
+elif settlement_year == end_date.year:
+    possible_months = list(range(1, end_date.month + 1))
+else:
+    possible_months = list(range(1, 13))
+    
+month_index = possible_months.index(date.today().month) if date.today().month in possible_months else 0
+
 with col_settlement_month:
     settlement_month = st.selectbox(
         label="월",
-        options=list(range(1, 13)),
-        index=date.today().month - 1
+        options=possible_months,
+        index=month_index
     )
 
 settlement_date_corrected = date(settlement_year, settlement_month, get_last_day_of_month(settlement_year, settlement_month))
