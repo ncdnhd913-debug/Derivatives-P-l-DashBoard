@@ -83,11 +83,12 @@ with col_start_date:
         help="계약 시작일을 선택하세요."
     )
 with col_start_rate:
+    # 초기값을 1290.0으로 변경하여 시작부터 손익 차이를 보여줌
     start_spot_rate = st.number_input(
         label="시작 시점 현물환율",
         min_value=0.0,
         format="%.2f",
-        value=1300.0, # 초기값을 1,300.0으로 변경
+        value=1290.0,
         help="계약 시작일의 현물환율을 입력하세요."
     )
 
@@ -111,11 +112,12 @@ with col_end_date:
         help="기일물에 따라 자동으로 계산된 계약 만기일자입니다."
     )
 with col_end_rate:
+    # 초기값을 1320.0으로 변경하여 손익이 바로 보이도록 함
     end_spot_rate = st.number_input(
         label="만기 시점 현물환율",
         min_value=0.0,
         format="%.2f",
-        value=1300.0, # 초기값을 1,300.0으로 변경
+        value=1320.0, 
         help="계약 만료일의 현물환율을 입력하세요."
     )
 
@@ -166,7 +168,8 @@ current_month_scenario = start_date.month
 
 # 모든 결산월 리스트 생성 (만기월 제외)
 all_settlement_months = []
-initial_rate_for_hypo = contract_rate if contract_rate > 0 else 1300.0
+# 초기값을 계약환율과 다르게 설정하여 평가손익이 바로 보이도록 수정
+initial_rate_for_hypo = contract_rate + 20
 
 while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_month.replace(day=1):
     is_expiry_month_scenario = (current_year_scenario == end_date.year and current_month_scenario == end_date.month)
