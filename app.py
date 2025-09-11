@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import date, timedelta
 import calendar
 import pandas as pd
+import altair as alt
 
 # 전체 페이지 설정
 st.set_page_config(
@@ -306,12 +307,35 @@ if st.sidebar.button("손익 분석 실행"):
                 current_month_chart = 1
                 current_year_chart += 1
         
-        # 데이터프레임 생성 및 그래프 표시
+        # 데이터프레임 생성
         df_scenario = pd.DataFrame(scenario_data)
-        df_scenario.set_index('결산연월', inplace=True)
-        
+
+        # Altair 차트 생성 및 표시
         st.write("각 월에 입력된 예상 통화선도환율을 기준으로 계산된 손익 시나리오입니다.")
-        st.line_chart(df_scenario, use_container_width=True)
+        chart = alt.Chart(df_scenario).mark_line(point=True).encode(
+            x=alt.X(
+                '결산연월',
+                axis=alt.Axis(
+                    title='결산연월',
+                    labelAngle=0 # 가로축 라벨을 수평으로 설정
+                )
+            ),
+            y=alt.Y(
+                '총 손익 (백만원)',
+                axis=alt.Axis(
+                    title='총 손익 (백만원)', # y축 제목에 단위 명시
+                    format=',.2f'
+                )
+            ),
+            tooltip=[
+                alt.Tooltip('결산연월', title='결산연월'),
+                alt.Tooltip('총 손익 (백만원)', title='총 손익 (백만원)', format=',.2f')
+            ]
+        ).properties(
+            title='월별 총 손익 시나리오'
+        )
+
+        st.altair_chart(chart, use_container_width=True)
 
     else:
         st.warning("모든 필수 입력값(거래금액, 계약환율, 만기 시점 현물환율)을 모두 0보다 크게 입력해주세요.")
