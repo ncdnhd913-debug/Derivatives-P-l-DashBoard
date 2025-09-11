@@ -314,6 +314,7 @@ if st.sidebar.button("손익 분석 실행"):
         chart = alt.Chart(df_scenario).mark_line(point=True).encode(
             x=alt.X(
                 '결산연월',
+                sort=date_options, # 올바른 시간 순서대로 정렬하도록 수정
                 axis=alt.Axis(
                     title='결산연월',
                     labelAngle=0 # 가로축 라벨을 수평으로 설정
