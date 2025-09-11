@@ -35,11 +35,12 @@ transaction_type = st.sidebar.selectbox(
     help="거래 종류에 따라 손익 계산 방식이 달라집니다."
 )
 
-# 1. 거래금액($) 입력 필드
+# 1. 거래금액($) 입력 필드 (초기값을 1로 설정하여 에러 방지)
 amount_usd = st.sidebar.number_input(
     label="거래금액($)",
     min_value=0.0,
     format="%.2f",
+    value=1.0, # 초기값을 1.0으로 설정하여 필수입력 에러를 방지
     help="거래에 사용된 금액을 달러($) 단위로 입력하세요."
 )
 
@@ -48,6 +49,7 @@ contract_rate = st.sidebar.number_input(
     label="계약환율",
     min_value=0.0,
     format="%.2f",
+    value=1.0, # 초기값을 1.0으로 설정하여 필수입력 에러를 방지
     help="계약 시점의 통화선도환율을 입력하세요."
 )
 
@@ -85,6 +87,7 @@ with col_start_rate:
         label="시작 시점 현물환율",
         min_value=0.0,
         format="%.2f",
+        value=1.0, # 초기값을 1.0으로 설정하여 필수입력 에러를 방지
         help="계약 시작일의 현물환율을 입력하세요."
     )
 
@@ -112,11 +115,11 @@ with col_end_rate:
         label="만기 시점 현물환율",
         min_value=0.0,
         format="%.2f",
+        value=1.0, # 초기값을 1.0으로 설정하여 필수입력 에러를 방지
         help="계약 만료일의 현물환율을 입력하세요."
     )
 
 # 4. 결산연월 및 환율 입력 필드
-# "결산연월 및 예상환율" -> "결산일자"로 변경
 st.sidebar.subheader("결산일자")
 
 # 선택된 달의 마지막 날을 계산하는 함수
@@ -128,6 +131,7 @@ all_settlement_dates = []
 current_year = start_date.year
 current_month = start_date.month
 
+# 만기월의 마지막 날짜를 구함
 end_of_contract_month = date(end_date.year, end_date.month, get_last_day_of_month(end_date.year, end_date.month))
 
 while date(current_year, current_month, 1) <= end_of_contract_month.replace(day=1):
@@ -138,16 +142,13 @@ while date(current_year, current_month, 1) <= end_of_contract_month.replace(day=
         current_month = 1
         current_year += 1
 
-# 결산일 선택 메뉴를 단일 SelectBox로 통합
 date_options = [f"{d.year}년 {d.month}월" for d in all_settlement_dates]
 date_index = date_options.index(f"{date.today().year}년 {date.today().month}월") if f"{date.today().year}년 {date.today().month}월" in date_options else 0
 
-# "결산연월" -> "결산일자"로 변경
 settlement_date = st.sidebar.selectbox(
     label="결산일자",
     options=date_options,
     index=date_index,
-    # "X월말"이 아니라 "X월"로 표현하도록 형식 제거
     format_func=lambda d: d.replace("년", "년 ").replace("월", "월")
 )
 settlement_date_corrected = all_settlement_dates[date_options.index(settlement_date)]
@@ -165,7 +166,6 @@ current_month_scenario = start_date.month
 
 # 모든 결산월 리스트 생성 (만기월 제외)
 all_settlement_months = []
-# 사용자가 계약환율을 입력하지 않았을 경우 기본값 설정
 initial_rate_for_hypo = contract_rate if contract_rate > 0 else 1300.0
 
 while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_month.replace(day=1):
@@ -173,12 +173,10 @@ while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_
     if not is_expiry_month_scenario:
         month_key = f"{current_year_scenario}-{current_month_scenario}"
         
-        # --- 수정된 부분: 세션 상태에 값이 없으면 계약환율로 초기화 ---
         if month_key not in st.session_state.hypothetical_rates:
             st.session_state.hypothetical_rates[month_key] = initial_rate_for_hypo
         
         all_settlement_months.append({
-            # 컬럼명과 값 변경
             "결산일자": f"{current_year_scenario}년 {current_month_scenario}월말",
             "예상 통화선도환율": st.session_state.hypothetical_rates.get(month_key),
             "month_key": month_key # 내부 사용을 위한 키
@@ -194,7 +192,6 @@ df_rates = pd.DataFrame(all_settlement_months)
 edited_df = st.sidebar.data_editor(
     df_rates,
     column_config={
-        # 컬럼명 변경
         "결산일자": st.column_config.TextColumn(
             "결산일자",
             disabled=True,
@@ -205,13 +202,12 @@ edited_df = st.sidebar.data_editor(
             format="%.2f",
             help="이 달의 예상 통화선도환율을 입력하세요."
         ),
-        "month_key": None  # month_key는 사용자에게 숨김
+        "month_key": None
     },
     hide_index=True,
     num_rows="fixed",
 )
 
-# 수정된 부분: edited_df의 값을 세션 상태에 저장하는 로직
 if not edited_df.empty:
     for _, row in edited_df.iterrows():
         st.session_state.hypothetical_rates[row['month_key']] = row['예상 통화선도환율']
@@ -233,14 +229,12 @@ if not end_spot_rate > 0:
     error_messages.append("만기 시점 현물환율")
 
 if error_messages:
+    # 에러 메시지 표시 후 함수 종료 (아래 코드는 실행되지 않음)
     st.warning(f"다음 항목의 값을 0보다 크게 입력해주세요: {', '.join(error_messages)}")
-elif settlement_date_corrected < start_date or settlement_date_corrected > end_of_contract_month:
-    st.error("결산일은 계약 시작일과 만기일이 속한 달의 마지막 날 사이여야 합니다. 결산일자를 다시 선택해주세요.")
 else:
     settlement_year = settlement_date_corrected.year
     settlement_month = settlement_date_corrected.month
     
-    # 현재 선택된 결산월의 예상 환율을 가져옴
     is_expiry_month = (settlement_year == end_date.year and settlement_month == end_date.month)
     
     # 거래손익은 항상 계산
@@ -254,7 +248,6 @@ else:
         settlement_rate_key = f"{settlement_year}-{settlement_month}"
         settlement_forward_rate_for_calc = st.session_state.hypothetical_rates.get(settlement_rate_key, 0)
 
-        # 예상 환율이 0보다 큰지 다시 한 번 확인
         if settlement_forward_rate_for_calc <= 0:
             st.warning("선택된 결산일자에 대한 '예상 통화선도환율'을 0보다 크게 입력해주세요.")
         else:
@@ -296,7 +289,7 @@ else:
             st.metric(label="환율 차이 (원)", value=f"{end_spot_rate - contract_rate:,.2f}")
         st.markdown(f"**총 파생상품 거래손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
 
-    # --- 수정된 기능: 그래프로 손익 시나리오 표시
+    # --- 그래프로 손익 시나리오 표시
     st.markdown("---")
     st.subheader("📊 파생상품 가입에 따른 기간별 예상 총 손익 시나리오")
     
@@ -309,15 +302,11 @@ else:
         month_key_chart = f"{current_year_chart}-{current_month_chart}"
         is_expiry_month_chart = (current_year_chart == end_date.year and current_month_chart == end_date.month)
         
-        # 초기화
         total_pl = 0
-        valuation_pl_millions = 0
-        expiry_pl_millions = 0
         
         if is_expiry_month_chart:
             # 만기월인 경우, 만기 시점 환율에 따른 거래손익 계산
             total_pl = expiry_profit_loss
-            expiry_pl_millions = total_pl / 1_000_000
         else:
             # 만기월이 아닌 경우, 월말 예상 통화선도환율에 따른 평가손익 계산
             hypothetical_forward_rate = st.session_state.hypothetical_rates.get(month_key_chart, 0)
@@ -326,14 +315,12 @@ else:
                     total_pl = (contract_rate - hypothetical_forward_rate) * amount_usd
                 else: # 선매수
                     total_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
-            
-            valuation_pl_millions = total_pl / 1_000_000
         
         scenario_data.append({
             "결산연월": f"{current_year_chart}년 {current_month_chart}월",
             "총 손익 (백만원)": total_pl / 1_000_000,
-            "평가손익 (백만원)": valuation_pl_millions,
-            "거래손익 (백만원)": expiry_pl_millions
+            "평가손익 (백만원)": (total_pl / 1_000_000) if not is_expiry_month_chart else 0,
+            "거래손익 (백만원)": (total_pl / 1_000_000) if is_expiry_month_chart else 0
         })
 
         current_month_chart += 1
@@ -347,12 +334,10 @@ else:
     # Altair 차트 생성 및 표시
     st.write("각 월에 입력된 예상 통화선도환율을 기준으로 계산된 손익 시나리오입니다.")
     
-    # --- 수정된 부분: 더 깔끔한 그래프 구현 ---
-    
     # 막대 그래프 (색상 조건 포함)
     bar_chart = alt.Chart(df_scenario).mark_bar(
-        size=35, # 막대 너비 조절
-        cornerRadiusTopLeft=5, # 둥근 모서리 추가
+        size=35,
+        cornerRadiusTopLeft=5,
         cornerRadiusTopRight=5
     ).encode(
         x=alt.X(
@@ -370,11 +355,10 @@ else:
                 format=',.2f'
             )
         ),
-        # 총 손익 값에 따라 색상 변경
         color=alt.condition(
             alt.datum['총 손익 (백만원)'] >= 0,
             alt.value('#3498db'), # 이익일 경우 파란색
-            alt.value('#e74c3c')  # 손실일 경우 빨간색
+            alt.value('#e74c3c') # 손실일 경우 빨간색
         ),
         tooltip=[
             alt.Tooltip('결산연월', title='결산연월'),
@@ -386,9 +370,9 @@ else:
 
     # 손익 기준선(0)에 수평선 추가
     zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(
-        color='#7f8c8d', # 회색
+        color='#7f8c8d',
         strokeWidth=2,
-        strokeDash=[5, 5] # 점선
+        strokeDash=[5, 5]
     ).encode(
         y='y:Q'
     )
