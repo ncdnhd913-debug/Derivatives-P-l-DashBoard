@@ -153,46 +153,57 @@ settlement_date_corrected = all_settlement_dates[date_options.index(settlement_d
 st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isoformat()}`**")
 
 
-# --- 월말별 예상 통화선도환율 입력란을 사이드바로 이동 ---
+# --- 월말별 예상 통화선도환율 입력란을 Data Editor로 변경 ---
 st.sidebar.subheader("월말별 예상 통화선도환율")
 st.sidebar.markdown(
     "시나리오 분석을 위해 각 월말의 예상 통화선도환율을 입력하세요.",
-    help="통화선도환율의 추정이 필요한 경우 선형보간법을 이용하여 계산합니다."
+    help="더블클릭하거나 탭하여 값을 수정할 수 있습니다."
 )
 
 current_year_scenario = start_date.year
 current_month_scenario = start_date.month
 
-# 모든 결산월 리스트 생성
+# 모든 결산월 리스트 생성 (만기월 제외)
 all_settlement_months = []
 while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_month.replace(day=1):
-    all_settlement_months.append((current_year_scenario, current_month_scenario))
+    is_expiry_month_scenario = (current_year_scenario == end_date.year and current_month_scenario == end_date.month)
+    if not is_expiry_month_scenario:
+        month_key = f"{current_year_scenario}-{current_month_scenario}"
+        all_settlement_months.append({
+            "결산연월": f"{current_year_scenario}년 {current_month_scenario}월",
+            "예상 통화선도환율": st.session_state.hypothetical_rates.get(month_key, 0.0),
+            "month_key": month_key # 내부 사용을 위한 키
+        })
     current_month_scenario += 1
     if current_month_scenario > 12:
         current_month_scenario = 1
         current_year_scenario += 1
 
-# 단일 열로 환율 입력 필드 순서대로 배치
-for year_to_process, month_to_process in all_settlement_months:
-    month_key = f"{year_to_process}-{month_to_process}"
-    
-    # 만기월이면 입력 필드 생성 건너뛰기
-    is_expiry_month_scenario = (year_to_process == end_date.year and month_to_process == end_date.month)
-    if is_expiry_month_scenario:
-        continue
+df_rates = pd.DataFrame(all_settlement_months)
 
-    # 세션 상태에 값이 없으면 0으로 초기화
-    if month_key not in st.session_state.hypothetical_rates:
-        st.session_state.hypothetical_rates[month_key] = 0.0
+# Data Editor를 사용하여 환율 입력
+edited_df = st.sidebar.data_editor(
+    df_rates,
+    column_config={
+        "결산연월": st.column_config.TextColumn(
+            "결산연월",
+            disabled=True,
+        ),
+        "예상 통화선도환율": st.column_config.NumberColumn(
+            "예상 통화선도환율",
+            min_value=0.0,
+            format="%.2f",
+            help="이 달의 예상 통화선도환율을 입력하세요."
+        ),
+        "month_key": None  # month_key는 사용자에게 숨김
+    },
+    hide_index=True,
+    num_rows="fixed",
+)
 
-    # 동적으로 환율 입력 필드 생성
-    st.session_state.hypothetical_rates[month_key] = st.sidebar.number_input(
-        label=f"{year_to_process}년 {month_to_process}월말",
-        min_value=0.0,
-        value=st.session_state.hypothetical_rates[month_key],
-        format="%.2f",
-        key=f"rate_{month_key}"
-    )
+# 편집된 데이터프레임의 값을 세션 상태에 저장
+for row in edited_df.itertuples():
+    st.session_state.hypothetical_rates[row.month_key] = row._3 # _3은 예상 통화선도환율 칼럼의 인덱스
 
 
 # 메인 화면 구성
