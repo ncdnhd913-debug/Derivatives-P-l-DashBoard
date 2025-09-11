@@ -12,7 +12,7 @@ st.set_page_config(
 st.sidebar.header("파생상품 거래 정보")
 
 # 1. 거래금액($) 입력 필드
-st.sidebar.number_input(
+amount_usd = st.sidebar.number_input(
     label="거래금액($)",
     min_value=0.0,
     format="%.2f",
@@ -74,12 +74,10 @@ with col2:
         index=date.today().month - 1
     )
 
-# 선택된 연도와 월로 결산일 자동 설정 (해당 월의 마지막 날)
 settlement_date_corrected = date(settlement_year, settlement_month, get_last_day_of_month(settlement_year, settlement_month))
-st.sidebar.write(f"최종 결산일: **{settlement_date_corrected.isoformat()}**")
 
 # 5. 통화선도환율(소수점 두 자리) 입력 필드
-st.sidebar.number_input(
+forward_rate = st.sidebar.number_input(
     label="통화선도환율",
     min_value=0.0,
     format="%.2f",
@@ -87,7 +85,7 @@ st.sidebar.number_input(
 )
 
 # 6. 현물환율(소수점 두 자리) 입력 필드
-st.sidebar.number_input(
+spot_rate = st.sidebar.number_input(
     label="현물환율",
     min_value=0.0,
     format="%.2f",
@@ -96,8 +94,29 @@ st.sidebar.number_input(
 
 # 메인 화면 구성
 st.title("📈 파생상품 손익효과 분석 대시보드")
-st.write("왼쪽 사이드바에서 거래 정보를 입력하면, 이 곳에 손익효과 분석 결과가 도표로 나타납니다.")
+st.write("왼쪽 사이드바에서 거래 정보를 입력하고 **'손익 분석 실행'** 버튼을 누르세요.")
 
-# 예시로 빈 도표를 표시할 수 있는 자리
-# st.line_chart(...)
-# st.bar_chart(...)
+# 손익 분석 실행 버튼
+if st.sidebar.button("손익 분석 실행"):
+    if forward_rate > 0 and spot_rate > 0 and amount_usd > 0:
+        # 손익 계산
+        profit_loss = (spot_rate - forward_rate) * amount_usd
+
+        # 결과 디스플레이
+        st.subheader("손익 효과 분석 결과")
+
+        col_result, col_rate_diff = st.columns(2)
+
+        with col_result:
+            if profit_loss >= 0:
+                st.metric(label="총 손익 (원)", value=f"{profit_loss:,.0f}원", delta="이익")
+            else:
+                st.metric(label="총 손익 (원)", value=f"{profit_loss:,.0f}원", delta="손실", delta_color="inverse")
+
+        with col_rate_diff:
+            st.metric(label="환율 차이 (원)", value=f"{spot_rate - forward_rate:.2f}")
+
+        st.markdown(f"**환율 차이($/원):** ${spot_rate} - ${forward_rate} = ${spot_rate - forward_rate:.2f}")
+        st.markdown(f"**총 손익:** ${amount_usd:,.0f} * ({spot_rate - forward_rate:.2f}) = {profit_loss:,.0f}원")
+    else:
+        st.warning("거래금액, 통화선도환율, 현물환율을 모두 0보다 크게 입력해주세요.")
