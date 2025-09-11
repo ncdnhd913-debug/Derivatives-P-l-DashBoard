@@ -47,104 +47,37 @@ selected_tenor = st.sidebar.selectbox(
 tenor_days = tenor_options[selected_tenor]
 
 # 3. 계약일자 입력 필드
-start_date = st.sidebar.date_input(
-    label="계약 시작일자",
-    value=date.today(),
-    help="계약 시작일을 선택하세요."
-)
+st.sidebar.subheader("계약일자")
+col_start_date, col_start_rate = st.sidebar.columns(2)
+with col_start_date:
+    start_date = st.date_input(
+        label="계약 시작일자",
+        value=date.today(),
+        help="계약 시작일을 선택하세요."
+    )
+with col_start_rate:
+    start_spot_rate = st.number_input(
+        label="시작 시점 현물환율",
+        min_value=0.0,
+        format="%.2f",
+        help="계약 시작일의 현물환율을 입력하세요."
+    )
+
+col_end_date, col_end_rate = st.sidebar.columns(2)
 end_date = start_date + timedelta(days=tenor_days)
-st.sidebar.date_input(
-    label="계약 종료일자",
-    value=end_date,
-    disabled=True,
-    help="기일물에 따라 자동으로 계산된 계약 종료일자입니다."
-)
-
-# 4. 결산연월(자동으로 말일로 설정)
-# 선택된 달의 마지막 날을 계산하는 함수
-def get_last_day_of_month(year, month):
-    return calendar.monthrange(year, month)[1]
-
-# 연도와 월을 별도로 선택할 수 있도록 같은 행에 배치
-st.sidebar.subheader("결산연월")
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    settlement_year = st.selectbox(
-        label="연도",
-        options=list(range(start_date.year, start_date.year + 10)),
-        index=0
+with col_end_date:
+    st.date_input(
+        label="계약 종료일자",
+        value=end_date,
+        disabled=True,
+        help="기일물에 따라 자동으로 계산된 계약 종료일자입니다."
     )
-with col2:
-    settlement_month = st.selectbox(
-        label="월",
-        options=list(range(1, 13)),
-        index=date.today().month - 1
+with col_end_rate:
+    end_spot_rate = st.number_input(
+        label="만기 시점 현물환율",
+        min_value=0.0,
+        format="%.2f",
+        help="계약 만료일의 현물환율을 입력하세요."
     )
 
-settlement_date_corrected = date(settlement_year, settlement_month, get_last_day_of_month(settlement_year, settlement_month))
-
-# 5. 통화선도환율(소수점 두 자리) 입력 필드
-forward_rate = st.sidebar.number_input(
-    label="통화선도환율",
-    min_value=0.0,
-    format="%.2f",
-    help="통화선도환율을 소수점 둘째 자리까지 입력하세요."
-)
-
-# 6. 현물환율(소수점 두 자리) 입력 필드
-spot_rate = st.sidebar.number_input(
-    label="현물환율",
-    min_value=0.0,
-    format="%.2f",
-    help="현재 시장 환율(현물환율)을 소수점 둘째 자리까지 입력하세요."
-)
-
-# 메인 화면 구성
-st.title("📈 파생상품 손익효과 분석 대시보드")
-st.write("왼쪽 사이드바에서 거래 정보를 입력하고 **'손익 분석 실행'** 버튼을 누르세요.")
-
-# 손익 분석 실행 버튼
-if st.sidebar.button("손익 분석 실행"):
-    if forward_rate > 0 and spot_rate > 0 and amount_usd > 0:
-        # 손익 계산 로직 (거래 종류에 따라 변경)
-        if transaction_type == "선매도":
-            profit_loss = (forward_rate - spot_rate) * amount_usd
-            rate_diff_text = f"{forward_rate:,.2f} - {spot_rate:,.2f}"
-        else: # 선매수
-            profit_loss = (spot_rate - forward_rate) * amount_usd
-            rate_diff_text = f"{spot_rate:,.2f} - {forward_rate:,.2f}"
-
-        # ---
-        # 결산시점 평가손익 분석
-        st.header("결산시점 평가손익 분석 결과")
-        st.write("결산일에 시장환율을 기준으로 계산한 평가손익입니다.")
-
-        col_valuation_result, col_valuation_diff = st.columns(2)
-        with col_valuation_result:
-            if profit_loss >= 0:
-                st.metric(label="평가손익 (원)", value=f"{profit_loss:,.0f}원", delta="이익")
-            else:
-                st.metric(label="평가손익 (원)", value=f"{profit_loss:,.0f}원", delta="손실", delta_color="inverse")
-        with col_valuation_diff:
-            st.metric(label="환율 차이 (원)", value=f"{spot_rate - forward_rate:,.2f}")
-
-        st.markdown(f"**총 평가손익:** ${amount_usd:,.0f} * ({rate_diff_text}) = {profit_loss:,.0f}원")
-
-        # ---
-        # 계약만료시점 손익 분석
-        st.header("계약만료시점 손익 분석 결과")
-        st.write("계약 만료일에 시장환율을 기준으로 계산한 실제 손익입니다.")
-
-        col_expiry_result, col_expiry_diff = st.columns(2)
-        with col_expiry_result:
-            if profit_loss >= 0:
-                st.metric(label="총 손익 (원)", value=f"{profit_loss:,.0f}원", delta="이익")
-            else:
-                st.metric(label="총 손익 (원)", value=f"{profit_loss:,.0f}원", delta="손실", delta_color="inverse")
-        with col_expiry_diff:
-            st.metric(label="환율 차이 (원)", value=f"{spot_rate - forward_rate:,.2f}")
-
-        st.markdown(f"**총 손익:** ${amount_usd:,.0f} * ({rate_diff_text}) = {profit_loss:,.0f}원")
-
-    else:
-        st.warning("거래금액, 통화선도환율, 현물환율을 모두 0보다 크게 입력해주세요.")
+# 4. 결산연월(자동으로 말
