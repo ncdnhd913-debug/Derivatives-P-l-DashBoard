@@ -26,6 +26,14 @@ amount_usd = st.sidebar.number_input(
     help="거래에 사용된 금액을 달러($) 단위로 입력하세요."
 )
 
+# 5. 계약환율(소수점 두 자리) 입력 필드 (위치 변경)
+contract_rate = st.sidebar.number_input(
+    label="계약환율",
+    min_value=0.0,
+    format="%.2f",
+    help="계약 시점의 통화선도환율을 입력하세요."
+)
+
 # 2. 기일물 선택 메뉴
 tenor_options = {
     "1주일물": 7,
@@ -106,9 +114,9 @@ with col_end_rate:
 def get_last_day_of_month(year, month):
     return calendar.monthrange(year, month)[1]
 
-# 연도, 월, 현물환율을 같은 행에 배치
+# 연도, 월을 같은 행에 배치
 st.sidebar.subheader("결산연월")
-col_settlement_year, col_settlement_month, col_settlement_rate = st.sidebar.columns(3)
+col_settlement_year, col_settlement_month = st.sidebar.columns(2)
 with col_settlement_year:
     settlement_year = st.selectbox(
         label="연도",
@@ -121,24 +129,27 @@ with col_settlement_month:
         options=list(range(1, 13)),
         index=date.today().month - 1
     )
-with col_settlement_rate:
+
+settlement_date_corrected = date(settlement_year, settlement_month, get_last_day_of_month(settlement_year, settlement_month))
+st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isoformat()}`**")
+
+# 결산 시점 환율 입력 필드 (위치 변경)
+st.sidebar.subheader("결산 시점 환율")
+col_settlement_rates = st.sidebar.columns(2)
+with col_settlement_rates[0]:
     settlement_spot_rate = st.number_input(
         label="결산 시점 현물환율",
         min_value=0.0,
         format="%.2f",
         help="결산일의 현물환율을 입력하세요."
     )
-
-settlement_date_corrected = date(settlement_year, settlement_month, get_last_day_of_month(settlement_year, settlement_month))
-st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isoformat()}`**")
-
-# 5. 통화선도환율(소수점 두 자리) 입력 필드
-forward_rate = st.sidebar.number_input(
-    label="통화선도환율",
-    min_value=0.0,
-    format="%.2f",
-    help="통화선도환율을 소수점 둘째 자리까지 입력하세요."
-)
+with col_settlement_rates[1]:
+    settlement_forward_rate = st.number_input(
+        label="결산 시점 통화선도환율",
+        min_value=0.0,
+        format="%.2f",
+        help="결산일의 통화선도환율을 입력하세요."
+    )
 
 # 메인 화면 구성
 st.title("📈 파생상품 손익효과 분석 대시보드")
@@ -150,18 +161,18 @@ if st.sidebar.button("손익 분석 실행"):
     if settlement_date_corrected < start_date or settlement_date_corrected > end_date:
         st.error("결산일은 계약 시작일과 종료일 사이여야 합니다. 결산연월을 다시 선택해주세요.")
     # 모든 필수 입력값이 유효한지 확인
-    elif forward_rate > 0 and amount_usd > 0 and settlement_spot_rate > 0 and end_spot_rate > 0:
-        # 결산시점 평가손익 계산 로직 (거래 종류에 따라 변경)
+    elif contract_rate > 0 and amount_usd > 0 and settlement_spot_rate > 0 and end_spot_rate > 0 and settlement_forward_rate > 0:
+        # 결산시점 평가손익 계산 로직 (결산 시점 통화선도환율과 계약환율의 차이로 계산)
         if transaction_type == "선매도":
-            valuation_profit_loss = (forward_rate - settlement_spot_rate) * amount_usd
-            expiry_profit_loss = (forward_rate - end_spot_rate) * amount_usd
-            valuation_rate_diff_text = f"{forward_rate:,.2f} - {settlement_spot_rate:,.2f}"
-            expiry_rate_diff_text = f"{forward_rate:,.2f} - {end_spot_rate:,.2f}"
+            valuation_profit_loss = (contract_rate - settlement_forward_rate) * amount_usd
+            expiry_profit_loss = (contract_rate - end_spot_rate) * amount_usd
+            valuation_rate_diff_text = f"{contract_rate:,.2f} - {settlement_forward_rate:,.2f}"
+            expiry_rate_diff_text = f"{contract_rate:,.2f} - {end_spot_rate:,.2f}"
         else: # 선매수
-            valuation_profit_loss = (settlement_spot_rate - forward_rate) * amount_usd
-            expiry_profit_loss = (end_spot_rate - forward_rate) * amount_usd
-            valuation_rate_diff_text = f"{settlement_spot_rate:,.2f} - {forward_rate:,.2f}"
-            expiry_rate_diff_text = f"{end_spot_rate:,.2f} - {forward_rate:,.2f}"
+            valuation_profit_loss = (settlement_forward_rate - contract_rate) * amount_usd
+            expiry_profit_loss = (end_spot_rate - contract_rate) * amount_usd
+            valuation_rate_diff_text = f"{settlement_forward_rate:,.2f} - {contract_rate:,.2f}"
+            expiry_rate_diff_text = f"{end_spot_rate:,.2f} - {contract_rate:,.2f}"
 
         # ---
         # 결산시점 평가손익 분석
@@ -175,7 +186,7 @@ if st.sidebar.button("손익 분석 실행"):
             else:
                 st.metric(label="평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
         with col_valuation_diff:
-            st.metric(label="환율 차이 (원)", value=f"{settlement_spot_rate - forward_rate:,.2f}")
+            st.metric(label="환율 차이 (원)", value=f"{settlement_forward_rate - contract_rate:,.2f}")
 
         st.markdown(f"**총 평가손익:** ${amount_usd:,.0f} * ({valuation_rate_diff_text}) = {valuation_profit_loss:,.0f}원")
 
@@ -191,9 +202,9 @@ if st.sidebar.button("손익 분석 실행"):
             else:
                 st.metric(label="총 손익 (원)", value=f"{expiry_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
         with col_expiry_diff:
-            st.metric(label="환율 차이 (원)", value=f"{end_spot_rate - forward_rate:,.2f}")
+            st.metric(label="환율 차이 (원)", value=f"{end_spot_rate - contract_rate:,.2f}")
 
         st.markdown(f"**총 손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
 
     else:
-        st.warning("거래금액, 통화선도환율, 결산 시점 현물환율, 만기 시점 현물환율을 모두 0보다 크게 입력해주세요.")
+        st.warning("모든 필수 입력값(거래금액, 계약환율, 결산 시점 현물환율, 결산 시점 통화선도환율, 만기 시점 현물환율)을 모두 0보다 크게 입력해주세요.")
