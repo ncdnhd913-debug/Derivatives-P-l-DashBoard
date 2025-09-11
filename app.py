@@ -216,6 +216,11 @@ if not edited_df.empty:
         # Set the value to 0.0 if the user deletes it (it becomes None)
         st.session_state.hypothetical_rates[row['month_key']] = updated_rate if updated_rate is not None else 0.0
 
+# --- Add file uploader for FX valuation
+st.sidebar.markdown("---")
+st.sidebar.subheader("외화환산손익 데이터")
+uploaded_file = st.sidebar.file_uploader("계정별원장(.xlsx, .xls) 업로드", type=["xlsx", "xls"], help="외화환산이익/손실을 포함하는 계정별원장 엑셀 파일을 업로드하세요.")
+
 # Main screen
 st.title("📈 파생상품 손익효과 분석 대시보드")
 st.write("왼쪽 사이드바에서 계약 정보 및 결산일자를 입력하시면 실시간으로 분석 결과가 표시됩니다.")
@@ -294,9 +299,33 @@ else:
             st.metric(label="환율 차이 (원)", value=f"{end_spot_rate - contract_rate:,.2f}원")
         st.markdown(f"**총 파생상품 거래손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
 
+    # --- Process uploaded file for FX P&L
+    monthly_fx_pl = {}
+    if uploaded_file is not None:
+        try:
+            df_ledger = pd.read_excel(uploaded_file)
+            
+            # Ensure column names are correct and handle spaces
+            df_ledger.columns = [col.strip() for col in df_ledger.columns]
+            
+            # Calculate FX P&L
+            df_ledger['회계일'] = pd.to_datetime(df_ledger['회계일'])
+            df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%#m')
+            
+            # Handle different account names and calculate P&L
+            df_ledger['fx_pl'] = 0
+            df_ledger.loc[df_ledger['계정명'] == '외화환산이익', 'fx_pl'] = df_ledger['대변']
+            df_ledger.loc[df_ledger['계정명'] == '외화환산손실', 'fx_pl'] = -df_ledger['차변']
+            
+            monthly_fx_pl = df_ledger.groupby('month_key')['fx_pl'].sum().to_dict()
+            
+        except Exception as e:
+            st.error(f"파일을 처리하는 중 오류가 발생했습니다: {e}")
+            st.stop()
+
     # --- Display P&L scenario with a chart
     st.markdown("---")
-    st.subheader("📊 파생상품 가입에 따른 기간별 예상 총 손익 시나리오")
+    st.subheader("📊 파생상품 및 외화평가 기간별 총 손익 시나리오")
     
     # Create DataFrame for scenario analysis
     scenario_data = []
@@ -305,29 +334,29 @@ else:
 
     while date(current_year_chart, current_month_chart, 1) <= end_of_contract_month.replace(day=1):
         month_key_chart = f"{current_year_chart}-{current_month_chart}"
+        
+        # Calculate Derivative P&L
         is_expiry_month_chart = (current_year_chart == end_date.year and current_month_chart == end_date.month)
-        
-        total_pl = 0
-        
+        derivative_pl = 0
         if is_expiry_month_chart:
-            # If it's the maturity month, calculate transaction P&L based on the maturity rate
-            total_pl = expiry_profit_loss
+            derivative_pl = expiry_profit_loss
         else:
-            # If it's not the maturity month, calculate valuation P&L based on the hypothetical forward rate
             hypothetical_forward_rate = st.session_state.hypothetical_rates.get(month_key_chart)
             if hypothetical_forward_rate is None:
                 hypothetical_forward_rate = initial_rate_for_hypo
             
             if transaction_type == "선매도":
-                total_pl = (contract_rate - hypothetical_forward_rate) * amount_usd
+                derivative_pl = (contract_rate - hypothetical_forward_rate) * amount_usd
             else: # Buy forward
-                total_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
-            
+                derivative_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
+        
+        # Get FX P&L from uploaded file data
+        fx_pl = monthly_fx_pl.get(f"{current_year_chart}-{current_month_chart}", 0)
+        
         scenario_data.append({
             "결산연월": f"{current_year_chart}년 {current_month_chart}월",
-            "총 손익 (백만원)": total_pl / 1_000_000,
-            "평가손익 (백만원)": (total_pl / 1_000_000) if not is_expiry_month_chart else 0,
-            "거래손익 (백만원)": (total_pl / 1_000_000) if is_expiry_month_chart else 0
+            "파생상품 손익 (백만원)": derivative_pl / 1_000_000,
+            "외화환산손익 (백만원)": fx_pl / 1_000_000
         })
 
         current_month_chart += 1
@@ -335,19 +364,20 @@ else:
             current_month_chart = 1
             current_year_chart += 1
     
-    # Create DataFrame
+    # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
+    df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
+                        value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                        var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
-    st.write("각 월에 입력된 예상 통화선도환율을 기준으로 계산된 손익 시나리오입니다.")
+    st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
     
     # Dynamically set Y-axis domain to ensure bars are always visible
-    min_pl = df_scenario['총 손익 (백만원)'].min()
-    max_pl = df_scenario['총 손익 (백만원)'].max()
+    min_pl = df_melted['손익 (백만원)'].min()
+    max_pl = df_melted['손익 (백만원)'].max()
     
-    # Set a small buffer for the chart domain
     buffer = 1.2
-    # Set a base domain for cases where P&L is 0
     min_domain = -10.0
     max_domain = 10.0
 
@@ -358,51 +388,19 @@ else:
     
     chart_domain = [min_domain, max_domain]
 
-    # Bar chart (including color condition)
-    bar_chart = alt.Chart(df_scenario).mark_bar().encode(
-        x=alt.X(
-            '결산연월',
-            sort=date_options,
-            axis=alt.Axis(
-                title='결산연월',
-                labelAngle=0
-            ),
-            # Corrected: use paddingInner to control bar width/spacing
-            scale=alt.Scale(paddingInner=0.5) 
-        ),
-        y=alt.Y(
-            '총 손익 (백만원)',
-            axis=alt.Axis(
-                title='총 손익 (백만원)',
-                format=',.2f'
-            ),
-            scale=alt.Scale(domain=chart_domain)
-        ),
-        color=alt.condition(
-            alt.datum['총 손익 (백만원)'] >= 0,
-            alt.value('#3498db'), # Blue for profit
-            alt.value('#e74c3c') # Red for loss
-        ),
+    # Grouped bar chart
+    bar_chart = alt.Chart(df_melted).mark_bar().encode(
+        x=alt.X('손익 종류', title=None, axis=None, sort=None),
+        y=alt.Y('손익 (백만원)', axis=alt.Axis(title='손익 (백만원)', format=',.2f'), scale=alt.Scale(domain=chart_domain)),
+        color=alt.Color('손익 종류', legend=alt.Legend(title="손익 종류")),
+        column=alt.Column('결산연월', header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelAngle=0), sort=date_options),
         tooltip=[
             alt.Tooltip('결산연월', title='결산연월'),
-            alt.Tooltip('총 손익 (백만원)', title='총 손익 (백만원)', format=',.2f'),
-            alt.Tooltip('평가손익 (백만원)', title='평가손익 (백만원)', format=',.2f'),
-            alt.Tooltip('거래손익 (백만원)', title='거래손익 (백만원)', format=',.2f')
+            alt.Tooltip('손익 종류', title='손익 종류'),
+            alt.Tooltip('손익 (백만원)', title='손익 (백만원)', format=',.2f')
         ]
-    )
-
-    # Add a horizontal line at the P&L baseline (0)
-    zero_line = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(
-        color='#7f8c8d',
-        strokeWidth=2,
-        strokeDash=[5, 5]
-    ).encode(
-        y='y:Q'
-    )
-
-    # Combine charts and set properties
-    final_chart = (bar_chart + zero_line).properties(
-        title='월별 총 손익 시나리오'
+    ).properties(
+        title='월별 파생상품 및 외화평가 손익 시나리오'
     ).interactive()
 
-    st.altair_chart(final_chart, use_container_width=True)
+    st.altair_chart(bar_chart, use_container_width=True)
