@@ -122,43 +122,36 @@ def get_last_day_of_month(year, month):
 
 # 결산연월을 계약 기간 내에서만 선택 가능하도록 수정
 st.sidebar.subheader("결산연월")
-col_settlement_year, col_settlement_month = st.sidebar.columns(2)
 
-# 계약 시작일과 만기일을 기준으로 선택 가능한 연도 목록 생성
-last_day_of_end_month = get_last_day_of_month(end_date.year, end_date.month)
-end_of_contract_month = date(end_date.year, end_date.month, last_day_of_end_month)
+# 계약 시작일과 만기일을 기준으로 모든 월말 날짜 목록 생성
+all_settlement_dates = []
+current_year = start_date.year
+current_month = start_date.month
 
-possible_years = list(range(start_date.year, end_of_contract_month.year + 1))
-year_index = possible_years.index(date.today().year) if date.today().year in possible_years else 0
+end_of_contract_month = date(end_date.year, end_date.month, get_last_day_of_month(end_date.year, end_date.month))
 
-with col_settlement_year:
-    settlement_year = st.selectbox(
-        label="연도",
-        options=possible_years,
-        index=year_index
-    )
+while date(current_year, current_month, 1) <= end_of_contract_month.replace(day=1):
+    last_day = get_last_day_of_month(current_year, current_month)
+    all_settlement_dates.append(date(current_year, current_month, last_day))
+    current_month += 1
+    if current_month > 12:
+        current_month = 1
+        current_year += 1
 
-# 선택된 연도에 따라 선택 가능한 월 목록 동적 생성
-if settlement_year == start_date.year and settlement_year == end_of_contract_month.year:
-    possible_months = list(range(start_date.month, end_of_contract_month.month + 1))
-elif settlement_year == start_date.year:
-    possible_months = list(range(start_date.month, 13))
-elif settlement_year == end_of_contract_month.year:
-    possible_months = list(range(1, end_of_contract_month.month + 1))
-else:
-    possible_months = list(range(1, 13))
-    
-month_index = possible_months.index(date.today().month) if date.today().month in possible_months else 0
+# 결산일 선택 메뉴를 단일 SelectBox로 통합
+date_options = [f"{d.year}년 {d.month}월" for d in all_settlement_dates]
+date_index = date_options.index(f"{date.today().year}년 {date.today().month}월") if f"{date.today().year}년 {date.today().month}월" in date_options else 0
 
-with col_settlement_month:
-    settlement_month = st.selectbox(
-        label="월",
-        options=possible_months,
-        index=month_index
-    )
+settlement_date = st.sidebar.selectbox(
+    label="결산연월",
+    options=date_options,
+    index=date_index,
+    format_func=lambda d: d.replace("년", "년 ").replace("월", "월말")
+)
+settlement_date_corrected = all_settlement_dates[date_options.index(settlement_date)]
 
-settlement_date_corrected = date(settlement_year, settlement_month, get_last_day_of_month(settlement_year, settlement_month))
 st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isoformat()}`**")
+
 
 # --- 수정된 기능 추가 ---
 # 결산 가능 월별 예상 통화선도환율 입력
@@ -220,6 +213,9 @@ if st.sidebar.button("손익 분석 실행"):
         st.error("결산일은 계약 시작일과 만기일이 속한 달의 마지막 날 사이여야 합니다. 결산연월을 다시 선택해주세요.")
     # 모든 필수 입력값이 유효한지 확인
     elif contract_rate > 0 and amount_usd > 0 and end_spot_rate > 0:
+        settlement_year = settlement_date_corrected.year
+        settlement_month = settlement_date_corrected.month
+        
         # 현재 선택된 결산월의 예상 환율을 가져옴
         is_expiry_month = (settlement_year == end_date.year and settlement_month == end_date.month)
         
