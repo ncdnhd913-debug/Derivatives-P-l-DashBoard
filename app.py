@@ -444,8 +444,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                              value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                              var_name='손익 종류', value_name='손익 (백만원)')
+                         value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                         var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -470,6 +470,7 @@ else:
     chart_width = max(600, num_months * 80) # Use a minimum width, then scale up
     
     # --- 그룹 막대 차트로 변경하여 모든 월이 표시되도록 수정
+    # [수정] `use_container_width=True`를 제거하고 대신 `width` 속성을 동적으로 설정합니다.
     bar_chart = alt.Chart(df_melted).mark_bar(size=20).encode(
         # Y축
         y=alt.Y('손익 (백만원)', axis=alt.Axis(title='손익 (백만원)', format=',.2f'), scale=alt.Scale(domain=chart_domain)),
@@ -491,7 +492,8 @@ else:
         height=400
     ).interactive()
 
-    st.altair_chart(bar_chart, use_container_width=True)
+    # [수정] `use_container_width=True` 인수를 제거합니다.
+    st.altair_chart(bar_chart)
 
     # --- NEW: 환율 꺾은선 그래프 추가 (Add FX Rate Line Chart) ---
     st.markdown("---")
@@ -543,6 +545,7 @@ else:
             rate_domain = [0, 2000] # A reasonable fallback range for KRW/USD
 
         # Altair 꺾은선 그래프 생성
+        # [수정] `use_container_width=True`를 제거하고 대신 `width` 속성을 동적으로 설정합니다.
         line_chart = alt.Chart(df_rates_for_chart).mark_line(point=True).encode(
             x=alt.X('회계연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0), sort=ordered_month_strings),
             y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f'), scale=alt.Scale(domain=rate_domain)),
@@ -558,4 +561,5 @@ else:
             height=400
         ).interactive()
 
-        st.altair_chart(line_chart, use_container_width=True)
+        # [수정] `use_container_width=True` 인수를 제거합니다.
+        st.altair_chart(line_chart)
