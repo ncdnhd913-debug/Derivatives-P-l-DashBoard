@@ -261,7 +261,7 @@ if st.sidebar.button("손익 분석 실행"):
             
         # 만기월인 경우 거래손익 결과 표시
         else:
-            st.header(f"{settlement_month}월(결산연월) 파생상품 거래손익 분석결과")
+            st.header(f"{settlement_month}월 결산시점 파생상품 거래손익 분석결과")
             st.write("만기 시점의 현물환율을 기준으로 계산한 실제 손익입니다.")
             col_expiry_result, col_expiry_diff = st.columns(2)
             if transaction_type == "선매도":
