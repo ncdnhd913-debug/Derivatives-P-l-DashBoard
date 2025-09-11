@@ -9,7 +9,7 @@ st.set_page_config(
 )
 
 # 사이드바 구성
-st.sidebar.header("파생상품 거래 정보")
+st.sidebar.header("파생상품 계약 정보")
 
 # 0. 선도환거래종류 선택 메뉴
 transaction_type = st.sidebar.selectbox(
@@ -55,7 +55,7 @@ selected_tenor = st.sidebar.selectbox(
 tenor_days = tenor_options[selected_tenor]
 
 # 3. 계약일자 및 환율 입력 필드
-st.sidebar.subheader("계약일자")
+st.sidebar.subheader("파생상품 계약일자")
 col_start_date, col_start_rate = st.sidebar.columns(2)
 with col_start_date:
     start_date = st.date_input(
@@ -153,7 +153,7 @@ with col_settlement_rates[1]:
 
 # 메인 화면 구성
 st.title("📈 파생상품 손익효과 분석 대시보드")
-st.write("왼쪽 사이드바에서 거래 정보를 입력하고 **'손익 분석 실행'** 버튼을 누르세요.")
+st.write("왼쪽 사이드바에서 계약 정보를 입력하고 **'손익 분석 실행'** 버튼을 누르세요.")
 
 # 손익 분석 실행 버튼
 if st.sidebar.button("손익 분석 실행"):
@@ -176,19 +176,19 @@ if st.sidebar.button("손익 분석 실행"):
 
         # ---
         # 결산시점 평가손익 분석
-        st.header("결산시점 평가손익 분석 결과")
+        st.header("결산시점 파생상품 평가손익 분석 결과")
         st.write("결산일에 시장환율을 기준으로 계산한 평가손익입니다.")
 
         col_valuation_result, col_valuation_diff = st.columns(2)
         with col_valuation_result:
             if valuation_profit_loss >= 0:
-                st.metric(label="평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="이익")
+                st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="이익")
             else:
-                st.metric(label="평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
+                st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
         with col_valuation_diff:
             st.metric(label="환율 차이 (원)", value=f"{settlement_forward_rate - contract_rate:,.2f}")
 
-        st.markdown(f"**총 평가손익:** ${amount_usd:,.0f} * ({valuation_rate_diff_text}) = {valuation_profit_loss:,.0f}원")
+        st.markdown(f"**총 파생상품 평가손익:** ${amount_usd:,.0f} * ({valuation_rate_diff_text}) = {valuation_profit_loss:,.0f}원")
 
         # ---
         # 계약만료시점 손익 분석
@@ -198,13 +198,13 @@ if st.sidebar.button("손익 분석 실행"):
         col_expiry_result, col_expiry_diff = st.columns(2)
         with col_expiry_result:
             if expiry_profit_loss >= 0:
-                st.metric(label="총 손익 (원)", value=f"{expiry_profit_loss:,.0f}원", delta="이익")
+                st.metric(label="파생상품 거래손익 (원)", value=f"{expiry_profit_loss:,.0f}원", delta="이익")
             else:
-                st.metric(label="총 손익 (원)", value=f"{expiry_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
+                st.metric(label="파생상품 거래손익 (원)", value=f"{expiry_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
         with col_expiry_diff:
             st.metric(label="환율 차이 (원)", value=f"{end_spot_rate - contract_rate:,.2f}")
 
-        st.markdown(f"**총 손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
+        st.markdown(f"**총 파생상품 거래손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
 
     else:
         st.warning("모든 필수 입력값(거래금액, 계약환율, 결산 시점 현물환율, 결산 시점 통화선도환율, 만기 시점 현물환율)을 모두 0보다 크게 입력해주세요.")
