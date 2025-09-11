@@ -336,21 +336,29 @@ else:
 
     # Altair 차트 생성 및 표시
     st.write("각 월에 입력된 예상 통화선도환율을 기준으로 계산된 손익 시나리오입니다.")
-    chart = alt.Chart(df_scenario).mark_line(point=True).encode(
+    
+    # 막대 그래프로 변경 및 손익에 따라 색상 조건 추가
+    chart = alt.Chart(df_scenario).mark_bar().encode(
         x=alt.X(
             '결산연월',
-            sort=date_options, # 올바른 시간 순서대로 정렬하도록 수정
+            sort=date_options,
             axis=alt.Axis(
                 title='결산연월',
-                labelAngle=0 # 가로축 라벨을 수평으로 설정
+                labelAngle=0
             )
         ),
         y=alt.Y(
             '총 손익 (백만원)',
             axis=alt.Axis(
-                title='총 손익 (백만원)', # y축 제목에 단위 명시
+                title='총 손익 (백만원)',
                 format=',.2f'
             )
+        ),
+        # 총 손익 값에 따라 색상 변경
+        color=alt.condition(
+            alt.datum['총 손익 (백만원)'] >= 0,
+            alt.value('#007bff'), # 이익일 경우 파란색
+            alt.value('#dc3545')  # 손실일 경우 빨간색
         ),
         tooltip=[
             alt.Tooltip('결산연월', title='결산연월'),
