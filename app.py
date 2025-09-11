@@ -35,21 +35,21 @@ transaction_type = st.sidebar.selectbox(
     help="거래 종류에 따라 손익 계산 방식이 달라집니다."
 )
 
-# 1. 거래금액($) 입력 필드 (초기값을 1로 설정하여 에러 방지)
+# 1. 거래금액($) 입력 필드 (초기값을 1,000,000로 설정하여 의미 있는 분석값 제공)
 amount_usd = st.sidebar.number_input(
     label="거래금액($)",
     min_value=0.0,
     format="%.2f",
-    value=1.0, # 초기값을 1.0으로 설정하여 필수입력 에러를 방지
+    value=1_000_000.0, # 초기값을 1,000,000로 변경하여 그래프에 값이 표시되도록 함
     help="거래에 사용된 금액을 달러($) 단위로 입력하세요."
 )
 
-# 5. 계약환율(소수점 두 자리) 입력 필드 (위치 변경)
+# 5. 계약환율(소수점 두 자리) 입력 필드 (초기값을 1300으로 설정하여 의미 있는 분석값 제공)
 contract_rate = st.sidebar.number_input(
     label="계약환율",
     min_value=0.0,
     format="%.2f",
-    value=1.0, # 초기값을 1.0으로 설정하여 필수입력 에러를 방지
+    value=1300.0, # 초기값을 1,300.0으로 변경하여 손익 계산 결과가 0이 되지 않도록 함
     help="계약 시점의 통화선도환율을 입력하세요."
 )
 
@@ -87,7 +87,7 @@ with col_start_rate:
         label="시작 시점 현물환율",
         min_value=0.0,
         format="%.2f",
-        value=1.0, # 초기값을 1.0으로 설정하여 필수입력 에러를 방지
+        value=1300.0, # 초기값을 1,300.0으로 변경
         help="계약 시작일의 현물환율을 입력하세요."
     )
 
@@ -115,7 +115,7 @@ with col_end_rate:
         label="만기 시점 현물환율",
         min_value=0.0,
         format="%.2f",
-        value=1.0, # 초기값을 1.0으로 설정하여 필수입력 에러를 방지
+        value=1300.0, # 초기값을 1,300.0으로 변경
         help="계약 만료일의 현물환율을 입력하세요."
     )
 
@@ -309,13 +309,14 @@ else:
             total_pl = expiry_profit_loss
         else:
             # 만기월이 아닌 경우, 월말 예상 통화선도환율에 따른 평가손익 계산
-            hypothetical_forward_rate = st.session_state.hypothetical_rates.get(month_key_chart, 0)
-            if hypothetical_forward_rate > 0: # 예상 환율이 입력되었을 때만 계산
-                if transaction_type == "선매도":
-                    total_pl = (contract_rate - hypothetical_forward_rate) * amount_usd
-                else: # 선매수
-                    total_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
-        
+            # `hypothetical_rates`에 값이 없으면 `initial_rate_for_hypo`를 사용
+            hypothetical_forward_rate = st.session_state.hypothetical_rates.get(month_key_chart, initial_rate_for_hypo)
+            
+            if transaction_type == "선매도":
+                total_pl = (contract_rate - hypothetical_forward_rate) * amount_usd
+            else: # 선매수
+                total_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
+            
         scenario_data.append({
             "결산연월": f"{current_year_chart}년 {current_month_chart}월",
             "총 손익 (백만원)": total_pl / 1_000_000,
