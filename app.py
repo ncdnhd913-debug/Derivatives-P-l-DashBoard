@@ -364,8 +364,8 @@ else:
                 title='결산연월',
                 labelAngle=0
             ),
-            # Set the scale band to 0.33 to make the bars 1/3 of the space
-            scale=alt.Scale(band=0.33)
+            # Corrected: band property is now a direct argument of alt.X
+            band=0.33
         ),
         y=alt.Y(
             '총 손익 (백만원)',
