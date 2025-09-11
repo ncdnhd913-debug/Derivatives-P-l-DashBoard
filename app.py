@@ -170,8 +170,8 @@ while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_
     if not is_expiry_month_scenario:
         month_key = f"{current_year_scenario}-{current_month_scenario}"
         all_settlement_months.append({
-            # "X월"에서 "X월말"로 변경
-            "결산연월": f"{current_month_scenario}월말",
+            # 컬럼명과 값 변경
+            "결산일자": f"{current_year_scenario}년 {current_month_scenario}월말",
             "예상 통화선도환율": st.session_state.hypothetical_rates.get(month_key, 0.0),
             "month_key": month_key # 내부 사용을 위한 키
         })
@@ -186,8 +186,9 @@ df_rates = pd.DataFrame(all_settlement_months)
 edited_df = st.sidebar.data_editor(
     df_rates,
     column_config={
-        "결산연월": st.column_config.TextColumn(
-            "결산연월",
+        # 컬럼명 변경
+        "결산일자": st.column_config.TextColumn(
+            "결산일자",
             disabled=True,
         ),
         "예상 통화선도환율": st.column_config.NumberColumn(
