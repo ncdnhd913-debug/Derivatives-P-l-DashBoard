@@ -247,7 +247,7 @@ if st.sidebar.button("손익 분석 실행"):
                     valuation_rate_diff_text = f"{settlement_forward_rate_for_calc:,.2f} - {contract_rate:,.2f}"
 
                 # 평가손익 결과 표시
-                st.header("결산시점 파생상품 평가손익 분석 결과")
+                st.header(f"{settlement_month}월 결산시점 파생상품 평가손익 분석 결과") # 수정된 부분
                 st.write("선택된 결산일에 예상 환율을 기준으로 계산한 평가손익입니다.")
                 col_valuation_result, col_valuation_diff = st.columns(2)
                 with col_valuation_result:
