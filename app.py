@@ -161,8 +161,8 @@ st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isofor
 
 # --- 수정된 기능 추가 ---
 # 결산 가능 월별 예상 통화선도환율 입력
-st.sidebar.subheader("결산 가능 월별 예상 환율")
-st.sidebar.markdown("시나리오 분석을 위해 각 월의 예상 통화선도환율을 입력하세요.")
+st.sidebar.subheader("월말별 예상 통화선도환율")
+st.sidebar.markdown("시나리오 분석을 위해 각 월말의 예상 통화선도환율을 입력하세요.")
 
 current_year_scenario = start_date.year
 current_month_scenario = start_date.month
