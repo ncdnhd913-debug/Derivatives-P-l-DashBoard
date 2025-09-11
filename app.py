@@ -46,22 +46,33 @@ start_date = st.sidebar.date_input(
     help="계약 시작일을 선택하세요."
 )
 end_date = start_date + timedelta(days=tenor_days)
-st.sidebar.write("계약 종료일자")
-st.sidebar.write(f"**{end_date.isoformat()}**")
+st.sidebar.text_input(
+    label="계약 종료일자",
+    value=end_date.isoformat(),
+    disabled=True,
+    help="기일물에 따라 자동으로 계산된 계약 종료일자입니다."
+)
 
 # 4. 결산연월(자동으로 말일로 설정)
 # 선택된 달의 마지막 날을 계산하는 함수
 def get_last_day_of_month(year, month):
     return calendar.monthrange(year, month)[1]
 
-settlement_date = st.sidebar.date_input(
-    label="결산연월",
-    min_value=start_date, # 계약 시작일 이전으로 선택 불가능하게 설정
-    help="결산일을 선택하세요. 선택된 월의 마지막 날로 자동 설정됩니다."
+# 연도와 월을 별도로 선택할 수 있도록 변경
+st.sidebar.subheader("결산연월")
+settlement_year = st.sidebar.selectbox(
+    label="연도",
+    options=list(range(start_date.year, start_date.year + 10)),
+    index=0
+)
+settlement_month = st.sidebar.selectbox(
+    label="월",
+    options=list(range(1, 13)),
+    index=date.today().month - 1
 )
 
-# 선택된 날짜의 연도와 월을 가져와 마지막 날로 변경
-settlement_date_corrected = settlement_date.replace(day=get_last_day_of_month(settlement_date.year, settlement_date.month))
+# 선택된 연도와 월로 결산일 자동 설정 (해당 월의 마지막 날)
+settlement_date_corrected = date(settlement_year, settlement_month, get_last_day_of_month(settlement_year, settlement_month))
 st.sidebar.write(f"최종 결산일: **{settlement_date_corrected.isoformat()}**")
 
 # 5. 통화선도환율(소수점 두 자리) 입력 필드
