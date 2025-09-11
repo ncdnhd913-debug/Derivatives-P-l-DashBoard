@@ -435,8 +435,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                             value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                             var_name='손익 종류', value_name='손익 (백만원)')
+                              value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                              var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -513,10 +513,27 @@ else:
         # 두 데이터프레임을 합쳐서 차트에 사용할 데이터프레임 생성
         df_rates_for_chart = pd.concat([df_monthly_rates_from_ledger, df_contract_rate_data], ignore_index=True)
 
+        # Calculate a dynamic domain for the line chart's Y-axis to improve visibility
+        if not df_rates_for_chart.empty:
+            min_rate = df_rates_for_chart['환율'].min()
+            max_rate = df_rates_for_chart['환율'].max()
+
+            # Add a small buffer to the min and max rates
+            if min_rate == max_rate:
+                # Handle case where all rates are the same
+                buffer = min_rate * 0.05
+            else:
+                buffer = (max_rate - min_rate) * 0.1
+
+            rate_domain = [min_rate - buffer, max_rate + buffer]
+        else:
+            # Fallback domain if no data exists
+            rate_domain = [0, 2000] # A reasonable fallback range for KRW/USD
+
         # Altair 꺾은선 그래프 생성
         line_chart = alt.Chart(df_rates_for_chart).mark_line(point=True).encode(
             x=alt.X('회계연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0)),
-            y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f')),
+            y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f'), scale=alt.Scale(domain=rate_domain)),
             color=alt.Color('환율 종류', legend=alt.Legend(title="환율 종류")),
             tooltip=[
                 alt.Tooltip('회계연월', title='결산연월'),
