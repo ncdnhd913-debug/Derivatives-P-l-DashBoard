@@ -46,8 +46,12 @@ start_date = st.sidebar.date_input(
     help="계약 시작일을 선택하세요."
 )
 end_date = start_date + timedelta(days=tenor_days)
-st.sidebar.markdown("**계약 종료일자**")
-st.sidebar.info(end_date.isoformat())
+st.sidebar.date_input(
+    label="계약 종료일자",
+    value=end_date,
+    disabled=True,
+    help="기일물에 따라 자동으로 계산된 계약 종료일자입니다."
+)
 
 # 4. 결산연월(자동으로 말일로 설정)
 # 선택된 달의 마지막 날을 계산하는 함수
