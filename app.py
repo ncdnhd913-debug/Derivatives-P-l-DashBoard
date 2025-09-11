@@ -235,7 +235,7 @@ if zero_value_errors:
     st.warning(f"다음 항목의 값을 0보다 크게 입력해주세요: {', '.join(zero_value_errors)}")
 # Add the new validation logic for contract rate vs. start spot rate
 elif contract_rate > start_spot_rate:
-    st.error("한미 금리차에 따른 스왑포인트를 음수로 가정하여, 계약환율은 계약 시작시점의 환율보다 낮아야합니다.")
+    st.error("한미 금리차에 따른 스왑포인트를 음수로 가정하여, 계약환율은 계약 시작시점의 현물환율보다 낮아야합니다.")
 else:
     settlement_year = settlement_date_corrected.year
     settlement_month = settlement_date_corrected.month
