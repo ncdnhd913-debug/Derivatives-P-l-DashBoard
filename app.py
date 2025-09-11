@@ -84,7 +84,7 @@ with col_start_date:
         help="계약 시작일을 선택하세요."
     )
 with col_start_rate:
-    start_spot_rate = st.number_input(
+    start_spot_rate = st.sidebar.number_input(
         label="시작 시점 현물환율",
         min_value=0.0,
         format="%.2f",
@@ -112,7 +112,7 @@ with col_end_date:
         help="기일물에 따라 자동으로 계산된 계약 만기일자입니다."
     )
 with col_end_rate:
-    end_spot_rate = st.number_input(
+    end_spot_rate = st.sidebar.number_input(
         label="만기 시점 현물환율",
         min_value=0.0,
         format="%.2f",
@@ -305,13 +305,22 @@ else:
     monthly_fx_pl = {}
     if uploaded_file is not None:
         try:
-            df_ledger = pd.read_excel(uploaded_file)
-            
-            # Ensure required columns exist
-            required_columns = ['회계일', '계정명', '차변', '대변']
-            # Clean up column names for robust matching
-            df_ledger.columns = [col.strip() for col in df_ledger.columns]
+            # 엑셀 파일의 헤더를 인식하지 못하는 문제를 해결하기 위해,
+            # 헤더가 첫 번째 행(기본값)이 아닐 경우를 대비해 두 번째 행을 시도합니다.
+            try:
+                df_ledger = pd.read_excel(uploaded_file)
+                df_ledger.columns = [col.strip() for col in df_ledger.columns]
+                # 필수 열이 없으면 header=1로 다시 시도
+                if not all(col in df_ledger.columns for col in ['회계일', '계정명', '차변', '대변']):
+                    df_ledger = pd.read_excel(uploaded_file, header=1)
+                    df_ledger.columns = [col.strip() for col in df_ledger.columns]
+            except Exception:
+                # 첫 번째와 두 번째 행 모두 실패하면 오류 메시지 출력
+                st.error("업로드한 파일의 헤더를 인식할 수 없습니다. '회계일', '계정명', '차변', '대변' 열이 첫 번째 또는 두 번째 행에 올바르게 포함되어 있는지 확인해주세요.")
+                st.stop()
 
+            # 여전히 필요한 열이 모두 없는 경우 최종적으로 오류를 띄웁니다.
+            required_columns = ['회계일', '계정명', '차변', '대변']
             if not all(col in df_ledger.columns for col in required_columns):
                 st.error(f"업로드한 파일에 필요한 열('회계일', '계정명', '차변', '대변')이 모두 포함되어 있는지 확인해주세요.")
                 st.stop()
@@ -381,8 +390,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                        value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                        var_name='손익 종류', value_name='손익 (백만원)')
+                         value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                         var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
