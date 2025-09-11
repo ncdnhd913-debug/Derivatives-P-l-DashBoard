@@ -364,8 +364,8 @@ else:
                 title='결산연월',
                 labelAngle=0
             ),
-            # Corrected: band property is now a direct argument of alt.X
-            band=0.33
+            # Fix: The 'band' property must be specified within the scale.
+            scale=alt.Scale(band=0.33)
         ),
         y=alt.Y(
             '총 손익 (백만원)',
