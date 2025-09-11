@@ -308,6 +308,7 @@ else:
     # --- Process uploaded file for FX P&L
     st.markdown("---")
     st.subheader("외화환산손익 데이터 분석")
+
     monthly_fx_pl = {}
     if uploaded_file is not None:
         try:
@@ -362,6 +363,16 @@ else:
             df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%m')
             monthly_fx_pl = df_ledger.groupby('month_key')['fx_pl'].sum().to_dict()
             
+            # Display FX P&L metric here
+            if f"{settlement_year}-{settlement_month:02d}" in monthly_fx_pl:
+                selected_month_fx_pl = monthly_fx_pl[f"{settlement_year}-{settlement_month:02d}"]
+                if selected_month_fx_pl >= 0:
+                    st.metric(label="외화환산손익 (원)", value=f"{selected_month_fx_pl:,.0f}원", delta="이익")
+                else:
+                    st.metric(label="외화환산손익 (원)", value=f"{selected_month_fx_pl:,.0f}원", delta="손실", delta_color="inverse")
+            else:
+                st.info("선택된 결산일에 해당하는 외화환산손익 데이터가 업로드된 파일에 없습니다.")
+
         except Exception as e:
             st.error(f"파일을 처리하는 중 오류가 발생했습니다. 파일 형식이 올바른지 확인해주세요. 오류 메시지: {e}")
             st.stop()
@@ -413,8 +424,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                         value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                         var_name='손익 종류', value_name='손익 (백만원)')
+                             value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                             var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
