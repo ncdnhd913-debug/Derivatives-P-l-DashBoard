@@ -288,19 +288,28 @@ if st.sidebar.button("손익 분석 실행"):
             month_key_chart = f"{current_year_chart}-{current_month_chart}"
             is_expiry_month_chart = (current_year_chart == end_date.year and current_month_chart == end_date.month)
             
+            # 초기화
+            valuation_pl_millions = 0
+            expiry_pl_millions = 0
+            
             if is_expiry_month_chart:
                 total_pl = expiry_profit_loss
+                expiry_pl_millions = total_pl / 1_000_000
             else:
                 hypothetical_forward_rate = st.session_state.hypothetical_rates.get(month_key_chart, 0)
                 if transaction_type == "선매도":
                     total_pl = (contract_rate - hypothetical_forward_rate) * amount_usd
                 else: # 선매수
                     total_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
+                
+                valuation_pl_millions = total_pl / 1_000_000
             
-            # 총 손익을 백만 단위로 변환
-            total_pl_millions = total_pl / 1_000_000
-            
-            scenario_data.append({"결산연월": f"{current_year_chart}년 {current_month_chart}월", "총 손익 (백만원)": total_pl_millions})
+            scenario_data.append({
+                "결산연월": f"{current_year_chart}년 {current_month_chart}월",
+                "총 손익 (백만원)": total_pl / 1_000_000,
+                "평가손익 (백만원)": valuation_pl_millions,
+                "거래손익 (백만원)": expiry_pl_millions
+            })
 
             current_month_chart += 1
             if current_month_chart > 12:
@@ -329,7 +338,9 @@ if st.sidebar.button("손익 분석 실행"):
             ),
             tooltip=[
                 alt.Tooltip('결산연월', title='결산연월'),
-                alt.Tooltip('총 손익 (백만원)', title='총 손익 (백만원)', format=',.2f')
+                alt.Tooltip('총 손익 (백만원)', title='총 손익 (백만원)', format=',.2f'),
+                alt.Tooltip('평가손익 (백만원)', title='평가손익 (백만원)', format=',.2f'),
+                alt.Tooltip('거래손익 (백만원)', title='거래손익 (백만원)', format=',.2f')
             ]
         ).properties(
             title='월별 총 손익 시나리오'
