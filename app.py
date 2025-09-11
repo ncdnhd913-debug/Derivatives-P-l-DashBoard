@@ -125,7 +125,11 @@ st.write("왼쪽 사이드바에서 거래 정보를 입력하고 **'손익 분�
 
 # 손익 분석 실행 버튼
 if st.sidebar.button("손익 분석 실행"):
-    if forward_rate > 0 and amount_usd > 0 and settlement_spot_rate > 0 and end_spot_rate > 0:
+    # 결산일이 계약 기간 내에 있는지 확인
+    if settlement_date_corrected < start_date or settlement_date_corrected > end_date:
+        st.error("결산일은 계약 시작일과 종료일 사이여야 합니다. 결산연월을 다시 선택해주세요.")
+    # 모든 필수 입력값이 유효한지 확인
+    elif forward_rate > 0 and amount_usd > 0 and settlement_spot_rate > 0 and end_spot_rate > 0:
         # 결산시점 평가손익 계산 로직 (거래 종류에 따라 변경)
         if transaction_type == "선매도":
             valuation_profit_loss = (forward_rate - settlement_spot_rate) * amount_usd
