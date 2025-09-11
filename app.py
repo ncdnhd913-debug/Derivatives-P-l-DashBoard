@@ -201,9 +201,10 @@ edited_df = st.sidebar.data_editor(
     num_rows="fixed",
 )
 
-# 편집된 데이터프레임의 값을 세션 상태에 저장
-for row in edited_df.itertuples():
-    st.session_state.hypothetical_rates[row.month_key] = row._3 # _3은 예상 통화선도환율 칼럼의 인덱스
+# 수정된 부분: edited_df의 값을 세션 상태에 저장하는 로직
+if not edited_df.empty:
+    for _, row in edited_df.iterrows():
+        st.session_state.hypothetical_rates[row['month_key']] = row['예상 통화선도환율']
 
 
 # 메인 화면 구성
