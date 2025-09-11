@@ -305,16 +305,18 @@ else:
             st.metric(label="환율 차이 (원)", value=f"{end_spot_rate - contract_rate:,.2f}원")
         st.markdown(f"**총 파생상품 거래손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
 
-    # --- Process uploaded file for FX P&L
+    # --- Process uploaded file for FX P&L and new FX rate chart
     st.markdown("---")
     st.subheader("외화환산손익 데이터 분석")
 
     monthly_fx_pl = {}
+    df_ledger = pd.DataFrame() # Initialize an empty DataFrame
+    has_fx_rate_data = False
+
     if uploaded_file is not None:
         try:
             # Step 1: Find the correct header row
-            # We'll read the first 50 rows to find the row that contains all the required column names.
-            required_columns_strict = ['회계일', '계정명', '차변', '대변']
+            required_columns_strict = ['회계일', '계정명', '차변', '대변', '환율']
             header_row = None
             
             # Read the file with no header to inspect the data
@@ -333,7 +335,7 @@ else:
                     break
             
             if header_row is None:
-                st.error("업로드한 파일에서 '회계일', '계정명', '차변', '대변' 열을 찾을 수 없습니다. 열 이름의 철자를 확인하거나, 첫 번째 행이 아닌 경우에도 올바르게 인식되도록 수정했습니다.")
+                st.error("업로드한 파일에서 '회계일', '계정명', '차변', '대변', '환율' 열을 찾을 수 없습니다. 열 이름의 철자를 확인하거나, 첫 번째 행이 아닌 경우에도 올바르게 인식되도록 수정했습니다.")
                 st.stop()
             
             # Step 2: Read the full file using the identified header row
@@ -345,12 +347,17 @@ else:
                 '회계일': '회계일',
                 '계정명': '계정명',
                 '차변': '차변',
-                '대변': '대변'
+                '대변': '대변',
+                '환율': '환율'
             }, inplace=True)
 
-            # Convert '차변' and '대변' columns to numeric, coercing errors to NaN
+            # Convert columns to numeric, coercing errors to NaN
             df_ledger['차변'] = pd.to_numeric(df_ledger['차변'], errors='coerce').fillna(0)
             df_ledger['대변'] = pd.to_numeric(df_ledger['대변'], errors='coerce').fillna(0)
+            df_ledger['환율'] = pd.to_numeric(df_ledger['환율'], errors='coerce').fillna(0)
+            
+            # Convert '회계일' to datetime
+            df_ledger['회계일'] = pd.to_datetime(df_ledger['회계일'])
             
             # NEW: Filter out rows that contain "월계" or "누계" in the '계정명' column
             df_ledger = df_ledger[~df_ledger['계정명'].str.contains('월계|누계', case=False, na=False)]
@@ -363,6 +370,10 @@ else:
             df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%m')
             monthly_fx_pl = df_ledger.groupby('month_key')['fx_pl'].sum().to_dict()
             
+            # Check if FX rate data exists
+            if '환율' in df_ledger.columns and not df_ledger['환율'].isnull().all():
+                has_fx_rate_data = True
+
             # Display FX P&L metric here
             if f"{settlement_year}-{settlement_month:02d}" in monthly_fx_pl:
                 selected_month_fx_pl = monthly_fx_pl[f"{settlement_year}-{settlement_month:02d}"]
@@ -424,8 +435,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                             value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                             var_name='손익 종류', value_name='손익 (백만원)')
+                              value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                              var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -467,3 +478,42 @@ else:
     ).interactive()
 
     st.altair_chart(bar_chart, use_container_width=True)
+
+    # --- NEW: 환율 꺾은선 그래프 추가 (Add FX Rate Line Chart) ---
+    st.markdown("---")
+    st.subheader("📈 외화평가 시점별 환율 변동 추이")
+    
+    if uploaded_file is None:
+        st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드하면 환율 변동 추이를 볼 수 있습니다.")
+    elif not has_fx_rate_data:
+        st.info("업로드된 파일에 '환율' 데이터가 없어 그래프를 표시할 수 없습니다.")
+    else:
+        # 외화 환산 데이터에서 환율 데이터 추출
+        # '회계일'과 '환율' 컬럼만 사용
+        df_fx_rates = df_ledger[['회계일', '환율']].copy()
+        
+        # 계약환율 데이터를 추가
+        df_fx_rates['계약환율'] = contract_rate
+        
+        # 데이터프레임을 Long 포맷으로 변환하여 Altair에 적합하게 만듦
+        df_rates_melted = df_fx_rates.melt(id_vars=['회계일'], 
+                                           value_vars=['환율', '계약환율'],
+                                           var_name='환율 종류', 
+                                           value_name='환율')
+
+        # Altair 꺾은선 그래프 생성
+        line_chart = alt.Chart(df_rates_melted).mark_line().encode(
+            x=alt.X('회계일', axis=alt.Axis(title='회계일자', format='%Y-%m-%d')),
+            y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f')),
+            color=alt.Color('환율 종류', legend=alt.Legend(title="환율 종류")),
+            tooltip=[
+                alt.Tooltip('회계일', title='회계일', format='%Y-%m-%d'),
+                alt.Tooltip('환율 종류', title='환율 종류'),
+                alt.Tooltip('환율', title='환율', format=',.2f')
+            ]
+        ).properties(
+            title='계약환율 대비 외화평가 시점별 환율 변동',
+            height=400
+        ).interactive()
+
+        st.altair_chart(line_chart, use_container_width=True)
