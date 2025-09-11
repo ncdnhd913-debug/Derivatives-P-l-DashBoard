@@ -116,8 +116,8 @@ with col_end_rate:
     )
 
 # 4. 결산연월 및 환율 입력 필드
-# "결산연월" 하위 제목을 제거하고 일반 텍스트로 변경
-st.sidebar.subheader("결산연월 및 예상 환율")
+# "결산연월 및 예상환율" -> "결산일자"로 변경
+st.sidebar.subheader("결산일자")
 
 # 선택된 달의 마지막 날을 계산하는 함수
 def get_last_day_of_month(year, month):
@@ -142,11 +142,13 @@ while date(current_year, current_month, 1) <= end_of_contract_month.replace(day=
 date_options = [f"{d.year}년 {d.month}월" for d in all_settlement_dates]
 date_index = date_options.index(f"{date.today().year}년 {date.today().month}월") if f"{date.today().year}년 {date.today().month}월" in date_options else 0
 
+# "결산연월" -> "결산일자"로 변경
 settlement_date = st.sidebar.selectbox(
-    label="결산연월",
+    label="결산일자",
     options=date_options,
     index=date_index,
-    format_func=lambda d: d.replace("년", "년 ").replace("월", "월말")
+    # "X월말"이 아니라 "X월"로 표현하도록 형식 제거
+    format_func=lambda d: d.replace("년", "년 ").replace("월", "월")
 )
 settlement_date_corrected = all_settlement_dates[date_options.index(settlement_date)]
 
@@ -168,7 +170,8 @@ while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_
     if not is_expiry_month_scenario:
         month_key = f"{current_year_scenario}-{current_month_scenario}"
         all_settlement_months.append({
-            "결산연월": f"{current_year_scenario}년 {current_month_scenario}월",
+            # "X월"에서 "X월말"로 변경
+            "결산연월": f"{current_month_scenario}월말",
             "예상 통화선도환율": st.session_state.hypothetical_rates.get(month_key, 0.0),
             "month_key": month_key # 내부 사용을 위한 키
         })
@@ -223,7 +226,7 @@ if not end_spot_rate > 0:
 if error_messages:
     st.warning(f"다음 항목의 값을 0보다 크게 입력해주세요: {', '.join(error_messages)}")
 elif settlement_date_corrected < start_date or settlement_date_corrected > end_of_contract_month:
-    st.error("결산일은 계약 시작일과 만기일이 속한 달의 마지막 날 사이여야 합니다. 결산연월을 다시 선택해주세요.")
+    st.error("결산일은 계약 시작일과 만기일이 속한 달의 마지막 날 사이여야 합니다. 결산일자를 다시 선택해주세요.")
 else:
     settlement_year = settlement_date_corrected.year
     settlement_month = settlement_date_corrected.month
@@ -244,7 +247,7 @@ else:
 
         # 예상 환율이 0보다 큰지 다시 한 번 확인
         if settlement_forward_rate_for_calc <= 0:
-            st.warning("선택된 결산연월에 대한 '예상 통화선도환율'을 0보다 크게 입력해주세요.")
+            st.warning("선택된 결산일자에 대한 '예상 통화선도환율'을 0보다 크게 입력해주세요.")
         else:
             if transaction_type == "선매도":
                 valuation_profit_loss = (contract_rate - settlement_forward_rate_for_calc) * amount_usd
