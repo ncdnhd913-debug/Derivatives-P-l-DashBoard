@@ -121,7 +121,8 @@ def get_last_day_of_month(year, month):
     return calendar.monthrange(year, month)[1]
 
 # 결산연월을 계약 기간 내에서만 선택 가능하도록 수정
-st.sidebar.markdown("### 결산연월", help="결산연월을 선택하세요.")
+# "결산연월" 하위 제목 중복 문제를 해결하기 위해 Markdown 대신 Subheader를 사용
+st.sidebar.subheader("결산연월 및 예상 환율")
 
 # 계약 시작일과 만기일을 기준으로 모든 월말 날짜 목록 생성
 all_settlement_dates = []
@@ -155,7 +156,6 @@ st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isofor
 
 # --- 월말별 예상 통화선도환율 입력란을 Data Editor로 변경 ---
 # subheader 대신 markdown을 사용하여 help 기능을 추가
-st.sidebar.markdown("### 월말별 예상 통화선도환율", help="통화선도환율의 추정이 필요할 경우 선형보간법을 이용하여 계산합니다.")
 st.sidebar.markdown(
     "시나리오 분석을 위해 각 월말의 예상 통화선도환율을 입력하세요.",
     help="더블클릭하거나 탭하여 값을 수정할 수 있습니다."
@@ -213,8 +213,18 @@ st.title("📈 파생상품 손익효과 분석 대시보드")
 st.write("왼쪽 사이드바에서 계약 정보를 입력하시면 실시간으로 분석 결과가 표시됩니다.")
 
 # 모든 필수 입력값이 유효한지 확인
-if not (contract_rate > 0 and amount_usd > 0 and end_spot_rate > 0):
-    st.warning("모든 필수 입력값(거래금액, 계약환율, 만기 시점 현물환율)을 모두 0보다 크게 입력해주세요.")
+error_messages = []
+if not amount_usd > 0:
+    error_messages.append("거래금액($)")
+if not contract_rate > 0:
+    error_messages.append("계약환율")
+if not start_spot_rate > 0:
+    error_messages.append("시작 시점 현물환율")
+if not end_spot_rate > 0:
+    error_messages.append("만기 시점 현물환율")
+
+if error_messages:
+    st.warning(f"다음 항목의 값을 0보다 크게 입력해주세요: {', '.join(error_messages)}")
 elif settlement_date_corrected < start_date or settlement_date_corrected > end_of_contract_month:
     st.error("결산일은 계약 시작일과 만기일이 속한 달의 마지막 날 사이여야 합니다. 결산연월을 다시 선택해주세요.")
 else:
@@ -236,7 +246,7 @@ else:
         settlement_forward_rate_for_calc = st.session_state.hypothetical_rates.get(settlement_rate_key, 0)
 
         if settlement_forward_rate_for_calc <= 0:
-            st.warning("선택된 결산연월에 대한 예상 통화선도환율을 0보다 크게 입력해주세요.")
+            st.warning("선택된 결산연월에 대한 '예상 통화선도환율'을 0보다 크게 입력해주세요.")
         else:
             if transaction_type == "선매도":
                 valuation_profit_loss = (contract_rate - settlement_forward_rate_for_calc) * amount_usd
@@ -290,6 +300,7 @@ else:
         is_expiry_month_chart = (current_year_chart == end_date.year and current_month_chart == end_date.month)
         
         # 초기화
+        total_pl = 0
         valuation_pl_millions = 0
         expiry_pl_millions = 0
         
@@ -298,10 +309,11 @@ else:
             expiry_pl_millions = total_pl / 1_000_000
         else:
             hypothetical_forward_rate = st.session_state.hypothetical_rates.get(month_key_chart, 0)
-            if transaction_type == "선매도":
-                total_pl = (contract_rate - hypothetical_forward_rate) * amount_usd
-            else: # 선매수
-                total_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
+            if hypothetical_forward_rate > 0: # 예상 환율이 입력되었을 때만 계산
+                if transaction_type == "선매도":
+                    total_pl = (contract_rate - hypothetical_forward_rate) * amount_usd
+                else: # 선매수
+                    total_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
             
             valuation_pl_millions = total_pl / 1_000_000
         
