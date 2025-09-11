@@ -397,12 +397,11 @@ else:
     
     chart_domain = [min_domain, max_domain]
 
-    # Grouped bar chart
+    # --- 수정된 부분: 누적 막대 차트(Stacked Bar Chart)로 변경
     bar_chart = alt.Chart(df_melted).mark_bar().encode(
-        x=alt.X('손익 종류', title=None, axis=None, sort=None),
+        x=alt.X('결산연월', axis=alt.Axis(title='결산 연월', labelAngle=-45, titleOrient='bottom')),
         y=alt.Y('손익 (백만원)', axis=alt.Axis(title='손익 (백만원)', format=',.2f'), scale=alt.Scale(domain=chart_domain)),
         color=alt.Color('손익 종류', legend=alt.Legend(title="손익 종류")),
-        column=alt.Column('결산연월', header=alt.Header(titleOrient="bottom", labelOrient="bottom", labelAngle=0), sort=date_options),
         tooltip=[
             alt.Tooltip('결산연월', title='결산연월'),
             alt.Tooltip('손익 종류', title='손익 종류'),
@@ -413,3 +412,4 @@ else:
     ).interactive()
 
     st.altair_chart(bar_chart, use_container_width=True)
+    # --- 수정된 부분 끝
