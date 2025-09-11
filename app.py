@@ -116,16 +116,14 @@ with col_end_rate:
     )
 
 # 4. 결산연월 및 환율 입력 필드
+# "결산연월" 하위 제목을 제거하고 일반 텍스트로 변경
+st.sidebar.subheader("결산연월 및 예상 환율")
+
 # 선택된 달의 마지막 날을 계산하는 함수
 def get_last_day_of_month(year, month):
     return calendar.monthrange(year, month)[1]
 
 # 결산연월을 계약 기간 내에서만 선택 가능하도록 수정
-# "결산연월" 하위 제목 중복 문제를 해결하기 위해 st.subheader 대신 st.markdown으로 제목을 변경
-st.sidebar.markdown("### 결산연월 및 예상 환율")
-st.sidebar.markdown("---")
-
-# 계약 시작일과 만기일을 기준으로 모든 월말 날짜 목록 생성
 all_settlement_dates = []
 current_year = start_date.year
 current_month = start_date.month
@@ -153,7 +151,6 @@ settlement_date = st.sidebar.selectbox(
 settlement_date_corrected = all_settlement_dates[date_options.index(settlement_date)]
 
 st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isoformat()}`**")
-
 
 # --- 월말별 예상 통화선도환율 입력란을 Data Editor로 변경 ---
 st.sidebar.markdown(
@@ -192,7 +189,7 @@ edited_df = st.sidebar.data_editor(
         ),
         "예상 통화선도환율": st.column_config.NumberColumn(
             "예상 통화선도환율",
-            min_value=0.01, # 0보다 큰 값으로 변경
+            min_value=0.01,
             format="%.2f",
             help="이 달의 예상 통화선도환율을 입력하세요."
         ),
