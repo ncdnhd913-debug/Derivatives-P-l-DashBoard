@@ -307,28 +307,33 @@ else:
         try:
             df_ledger = pd.read_excel(uploaded_file)
             
-            # Ensure column names are correct and handle spaces
+            # Ensure required columns exist
+            required_columns = ['회계일', '계정명', '차변', '대변']
+            # Clean up column names for robust matching
             df_ledger.columns = [col.strip() for col in df_ledger.columns]
+
+            if not all(col in df_ledger.columns for col in required_columns):
+                st.error(f"업로드한 파일에 필요한 열('회계일', '계정명', '차변', '대변')이 모두 포함되어 있는지 확인해주세요.")
+                st.stop()
             
             # The new line below cleans up whitespace in the '계정명' data itself.
-            df_ledger['계정명'] = df_ledger['계정명'].str.strip()
-
-            # Calculate FX P&L
+            df_ledger['계정명'] = df_ledger['계정명'].astype(str).str.strip()
             df_ledger['회계일'] = pd.to_datetime(df_ledger['회계일'])
+
+            # Convert '차변' and '대변' columns to numeric, coercing errors to NaN
+            df_ledger['차변'] = pd.to_numeric(df_ledger['차변'], errors='coerce').fillna(0)
+            df_ledger['대변'] = pd.to_numeric(df_ledger['대변'], errors='coerce').fillna(0)
             
-            # [수정] 월별 키를 생성할 때 `%m`을 사용하여 항상 두 자릿수로 패딩합니다.
-            df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%m')
-            
-            # The following code only calculates 손익 for '외화환산이익' and '외화환산손실',
-            # automatically ignoring other account names like '월계' and '누계'.
+            # Calculate FX P&L by checking if the account name CONTAINS the keywords
             df_ledger['fx_pl'] = 0
-            df_ledger.loc[df_ledger['계정명'] == '외화환산이익', 'fx_pl'] = df_ledger['대변']
-            df_ledger.loc[df_ledger['계정명'] == '외화환산손실', 'fx_pl'] = -df_ledger['차변']
+            df_ledger.loc[df_ledger['계정명'].str.contains('외화환산이익', case=False, na=False), 'fx_pl'] = df_ledger['대변']
+            df_ledger.loc[df_ledger['계정명'].str.contains('외화환산손실', case=False, na=False), 'fx_pl'] = -df_ledger['차변']
             
+            df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%m')
             monthly_fx_pl = df_ledger.groupby('month_key')['fx_pl'].sum().to_dict()
             
         except Exception as e:
-            st.error(f"파일을 처리하는 중 오류가 발생했습니다: {e}")
+            st.error(f"파일을 처리하는 중 오류가 발생했습니다. 파일 형식이 올바른지 확인해주세요. 오류 메시지: {e}")
             st.stop()
 
     # --- Display P&L scenario with a chart
