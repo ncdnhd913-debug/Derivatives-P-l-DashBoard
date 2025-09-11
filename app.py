@@ -2,7 +2,14 @@ import streamlit as st
 from datetime import date, timedelta
 import calendar
 import pandas as pd
+import locale
 
+# 로케일 설정 (숫자 포맷을 위해)
+try:
+    locale.setlocale(locale.LC_ALL, 'ko_KR.UTF-8')
+except locale.Error:
+    st.warning("한국어 로케일 설정을 지원하지 않는 환경입니다. 숫자 포맷이 다르게 보일 수 있습니다.")
+    
 # 전체 페이지 설정
 st.set_page_config(
     page_title="파생상품 손익효과 분석",
@@ -206,7 +213,7 @@ if st.sidebar.button("손익 분석 실행"):
         if settlement_forward_rate_for_calc <= 0:
             st.warning("선택된 결산연월에 대한 예상 통화선도환율을 0보다 크게 입력해주세요.")
         else:
-            # 손익 계산 로직
+            # 손익 계산 로직 (평가손익과 거래손익 모두 계산)
             if transaction_type == "선매도":
                 valuation_profit_loss = (contract_rate - settlement_forward_rate_for_calc) * amount_usd
                 expiry_profit_loss = (contract_rate - end_spot_rate) * amount_usd
@@ -218,11 +225,26 @@ if st.sidebar.button("손익 분석 실행"):
                 valuation_rate_diff_text = f"{settlement_forward_rate_for_calc:,.2f} - {contract_rate:,.2f}"
                 expiry_rate_diff_text = f"{end_spot_rate:,.2f} - {contract_rate:,.2f}"
 
-            # 결산연월이 만기일과 동일한 달인지 확인
+            # --- 수정된 기능: 결산시점 평가손익은 항상 표시 ---
+            st.header("결산시점 파생상품 평가손익 분석 결과")
+            st.write("선택된 결산일에 예상 환율을 기준으로 계산한 평가손익입니다.")
+
+            col_valuation_result, col_valuation_diff = st.columns(2)
+            with col_valuation_result:
+                if valuation_profit_loss >= 0:
+                    st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="이익")
+                else:
+                    st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
+            with col_valuation_diff:
+                st.metric(label="환율 차이 (원)", value=f"{settlement_forward_rate_for_calc - contract_rate:,.2f}")
+
+            st.markdown(f"**총 파생상품 평가손익:** ${amount_usd:,.0f} * ({valuation_rate_diff_text}) = {valuation_profit_loss:,.0f}원")
+
+            # --- 수정된 기능: 결산일이 만기일과 동일한 달이면 거래손익도 같이 표시 ---
             if settlement_year == end_date.year and settlement_month == end_date.month:
-                # 계약만료시점 손익 분석
-                st.header("계약만료시점 손익 분석 결과")
-                st.write("계약 만료일에 시장환율을 기준으로 계산한 실제 손익입니다.")
+                st.markdown("---")
+                st.header("계약만료시점 파생상품 거래손익 분석 결과")
+                st.write("만기 시점의 현물환율을 기준으로 계산한 실제 손익입니다.")
 
                 col_expiry_result, col_expiry_diff = st.columns(2)
                 with col_expiry_result:
@@ -235,22 +257,6 @@ if st.sidebar.button("손익 분석 실행"):
 
                 st.markdown(f"**총 파생상품 거래손익:** ${amount_usd:,.0f} * ({expiry_rate_diff_text}) = {expiry_profit_loss:,.0f}원")
 
-            else:
-                # 결산시점 평가손익 분석
-                st.header("결산시점 파생상품 평가손익 분석 결과")
-                st.write("결산일에 시장환율을 기준으로 계산한 평가손익입니다.")
-
-                col_valuation_result, col_valuation_diff = st.columns(2)
-                with col_valuation_result:
-                    if valuation_profit_loss >= 0:
-                        st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="이익")
-                    else:
-                        st.metric(label="파생상품 평가손익 (원)", value=f"{valuation_profit_loss:,.0f}원", delta="손실", delta_color="inverse")
-                with col_valuation_diff:
-                    st.metric(label="환율 차이 (원)", value=f"{settlement_forward_rate_for_calc - contract_rate:,.2f}")
-
-                st.markdown(f"**총 파생상품 평가손익:** ${amount_usd:,.0f} * ({valuation_rate_diff_text}) = {valuation_profit_loss:,.0f}원")
-            
             # --- 수정된 기능: 결산 가능 연월을 X축으로 하는 손익 시나리오 그래프
             st.markdown("---")
             st.subheader("📊 기간별 예상 총 손익 시나리오")
@@ -269,7 +275,8 @@ if st.sidebar.button("손익 분석 실행"):
                 else: # 선매수
                     hypothetical_pl = (hypothetical_forward_rate - contract_rate) * amount_usd
                 
-                scenario_data.append({"결산연월": f"{current_year_chart}년 {current_month_chart}월", "총 손익 (원)": hypothetical_pl})
+                # 차트 순서 정렬을 위해 YYYY-MM 형식의 날짜 문자열을 사용
+                scenario_data.append({"결산연월": f"{current_year_chart}-{current_month_chart:02d}", "총 손익 (원)": hypothetical_pl})
 
                 current_month_chart += 1
                 if current_month_chart > 12:
