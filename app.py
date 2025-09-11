@@ -154,7 +154,8 @@ st.sidebar.markdown(f"**최종 결산일:** **`{settlement_date_corrected.isofor
 
 
 # --- 월말별 예상 통화선도환율 입력란을 Data Editor로 변경 ---
-st.sidebar.subheader("월말별 예상 통화선도환율")
+# subheader 대신 markdown을 사용하여 help 기능을 추가
+st.sidebar.markdown("### 월말별 예상 통화선도환율", help="통화선도환율의 추정이 필요할 경우 선형보간법을 이용하여 계산합니다.")
 st.sidebar.markdown(
     "시나리오 분석을 위해 각 월말의 예상 통화선도환율을 입력하세요.",
     help="더블클릭하거나 탭하여 값을 수정할 수 있습니다."
