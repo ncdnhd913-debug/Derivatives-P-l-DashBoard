@@ -11,6 +11,13 @@ st.set_page_config(
 # 사이드바 구성
 st.sidebar.header("파생상품 거래 정보")
 
+# 0. 선도환거래종류 선택 메뉴
+transaction_type = st.sidebar.selectbox(
+    label="선도환거래종류",
+    options=["선매도", "선매수"],
+    help="거래 종류에 따라 손익 계산 방식이 달라집니다."
+)
+
 # 1. 거래금액($) 입력 필드
 amount_usd = st.sidebar.number_input(
     label="거래금액($)",
@@ -99,8 +106,13 @@ st.write("왼쪽 사이드바에서 거래 정보를 입력하고 **'손익 분�
 # 손익 분석 실행 버튼
 if st.sidebar.button("손익 분석 실행"):
     if forward_rate > 0 and spot_rate > 0 and amount_usd > 0:
-        # 손익 계산
-        profit_loss = (spot_rate - forward_rate) * amount_usd
+        # 손익 계산 로직 (거래 종류에 따라 변경)
+        if transaction_type == "선매도":
+            profit_loss = (forward_rate - spot_rate) * amount_usd
+            rate_diff_text = f"{forward_rate:,.2f} - {spot_rate:,.2f}"
+        else: # 선매수
+            profit_loss = (spot_rate - forward_rate) * amount_usd
+            rate_diff_text = f"{spot_rate:,.2f} - {forward_rate:,.2f}"
 
         # ---
         # 결산시점 평가손익 분석
@@ -116,7 +128,7 @@ if st.sidebar.button("손익 분석 실행"):
         with col_valuation_diff:
             st.metric(label="환율 차이 (원)", value=f"{spot_rate - forward_rate:,.2f}")
 
-        st.markdown(f"**총 평가손익:** ${amount_usd:,.0f} * ({spot_rate - forward_rate:,.2f}) = {profit_loss:,.0f}원")
+        st.markdown(f"**총 평가손익:** ${amount_usd:,.0f} * ({rate_diff_text}) = {profit_loss:,.0f}원")
 
         # ---
         # 계약만료시점 손익 분석
@@ -132,7 +144,7 @@ if st.sidebar.button("손익 분석 실행"):
         with col_expiry_diff:
             st.metric(label="환율 차이 (원)", value=f"{spot_rate - forward_rate:,.2f}")
 
-        st.markdown(f"**총 손익:** ${amount_usd:,.0f} * ({spot_rate - forward_rate:,.2f}) = {profit_loss:,.0f}원")
+        st.markdown(f"**총 손익:** ${amount_usd:,.0f} * ({rate_diff_text}) = {profit_loss:,.0f}원")
 
     else:
         st.warning("거래금액, 통화선도환율, 현물환율을 모두 0보다 크게 입력해주세요.")
