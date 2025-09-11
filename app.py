@@ -364,9 +364,8 @@ else:
                 title='결산연월',
                 labelAngle=0
             ),
-            # Fix: The 'band' property is not a valid property for alt.Scale.
-            # Using paddingInner to adjust bar spacing instead.
-            scale=alt.Scale(paddingInner=0.33)
+            # Reduce bar width by half by setting the band property
+            scale=alt.Scale(band=0.5) 
         ),
         y=alt.Y(
             '총 손익 (백만원)',
