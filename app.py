@@ -231,43 +231,33 @@ if st.sidebar.button("손익 분석 실행"):
             st.markdown(f"**총 파생상품 평가손익:** ${amount_usd:,.0f} * ({valuation_rate_diff_text}) = {valuation_profit_loss:,.0f}원")
         
         # ---
-        # 추가된 기능: 결산 가능 연월 표시 및 손익 시나리오 그래프
+        # 수정된 기능: 결산 가능 연월을 X축으로 하는 손익 시나리오 그래프
         st.markdown("---")
-        st.subheader("🗓️ 결산 가능한 모든 연월")
+        st.subheader("📊 기간별 예상 평가손익 시나리오")
         
-        # 결산 가능한 모든 연월 목록 생성
-        all_possible_dates = []
+        # 시나리오 분석을 위한 데이터프레임 생성
+        scenario_data = []
         current_year = start_date.year
         current_month = start_date.month
+
         while date(current_year, current_month, 1) <= end_of_contract_month.replace(day=1):
-            all_possible_dates.append(f"{current_year}년 {current_month}월")
+            if transaction_type == "선매도":
+                hypothetical_pl = (contract_rate - settlement_forward_rate) * amount_usd
+            else: # 선매수
+                hypothetical_pl = (settlement_forward_rate - contract_rate) * amount_usd
+            
+            scenario_data.append({"결산연월": f"{current_year}년 {current_month}월", "예상 평가손익 (원)": hypothetical_pl})
+
             current_month += 1
             if current_month > 12:
                 current_month = 1
                 current_year += 1
         
-        st.write(f"계약 기간 동안 결산이 가능한 연월은 다음과 같습니다: **{', '.join(all_possible_dates)}**")
-
-        st.markdown("---")
-        st.subheader("📊 환율 변동에 따른 평가손익 시나리오")
-        
-        # 시나리오 분석을 위한 데이터프레임 생성
-        # 계약환율을 기준으로 +- 200원 범위에서 10원 단위로 시나리오 분석
-        scenario_rates = [contract_rate + i for i in range(-200, 201, 10)]
-        scenario_data = []
-
-        for rate in scenario_rates:
-            if transaction_type == "선매도":
-                hypothetical_pl = (contract_rate - rate) * amount_usd
-            else: # 선매수
-                hypothetical_pl = (rate - contract_rate) * amount_usd
-            scenario_data.append({"환율": rate, "예상 평가손익 (원)": hypothetical_pl})
-
         df_scenario = pd.DataFrame(scenario_data)
 
         # 그래프 표시
-        st.write(f"계약환율 **{contract_rate:,.2f}**을 기준으로 시장환율 변동에 따른 예상 평가손익을 보여줍니다.")
-        st.line_chart(df_scenario, x="환율", y="예상 평가손익 (원)")
+        st.write(f"결산 시점 통화선도환율({settlement_forward_rate:,.2f}원)이 계약 만기일까지 유지될 경우 월별 예상 평가손익을 보여줍니다.")
+        st.line_chart(df_scenario, x="결산연월", y="예상 평가손익 (원)")
 
 
     else:
