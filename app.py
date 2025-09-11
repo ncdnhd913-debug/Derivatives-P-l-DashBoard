@@ -404,8 +404,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                         value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                         var_name='손익 종류', value_name='손익 (백만원)')
+                        value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                        var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -425,12 +425,17 @@ else:
     
     chart_domain = [min_domain, max_domain]
 
-    # --- 누적 막대 차트로 변경하여 모든 월이 표시되도록 수정
-    # x축 레이블의 가독성을 높이기 위해 labelAngle을 조정
+    # --- 그룹 막대 차트로 변경하여 모든 월이 표시되도록 수정
     bar_chart = alt.Chart(df_melted).mark_bar().encode(
-        x=alt.X('결산연월', axis=alt.Axis(title='결산 연월', labelAngle=-45)),
+        # Y축
         y=alt.Y('손익 (백만원)', axis=alt.Axis(title='손익 (백만원)', format=',.2f'), scale=alt.Scale(domain=chart_domain)),
+        # 그룹을 위한 X축: 결산연월
+        x=alt.X('결산연월:O', axis=alt.Axis(title='결산 연월', labelAngle=-45)),
+        # 그룹 내 막대 위치를 위한 X축 오프셋
+        xOffset=alt.XOffset('손익 종류:N'),
+        # 색상
         color=alt.Color('손익 종류', legend=alt.Legend(title="손익 종류")),
+        # 툴팁
         tooltip=[
             alt.Tooltip('결산연월', title='결산연월'),
             alt.Tooltip('손익 종류', title='손익 종류'),
