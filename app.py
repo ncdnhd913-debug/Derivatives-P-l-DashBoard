@@ -398,6 +398,16 @@ else:
     scenario_data = []
     current_year_chart = start_date.year
     current_month_chart = start_date.month
+    
+    # 생성될 모든 월 문자열의 순서 리스트를 미리 생성 (정확한 차트 정렬을 위함)
+    ordered_month_strings = []
+    temp_year, temp_month = start_date.year, start_date.month
+    while date(temp_year, temp_month, 1) <= end_of_contract_month.replace(day=1):
+        ordered_month_strings.append(f"{temp_year}년 {temp_month}월")
+        temp_month += 1
+        if temp_month > 12:
+            temp_month = 1
+            temp_year += 1
 
     while date(current_year_chart, current_month_chart, 1) <= end_of_contract_month.replace(day=1):
         # [수정] 월별 키를 생성할 때 `:02d` 포맷을 사용하여 항상 두 자릿수로 패딩합니다.
@@ -435,8 +445,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                              value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                              var_name='손익 종류', value_name='손익 (백만원)')
+                                value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                                var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -460,8 +470,8 @@ else:
     bar_chart = alt.Chart(df_melted).mark_bar(size=20).encode(
         # Y축
         y=alt.Y('손익 (백만원)', axis=alt.Axis(title='손익 (백만원)', format=',.2f'), scale=alt.Scale(domain=chart_domain)),
-        # 그룹을 위한 X축: 결산연월
-        x=alt.X('결산연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0)),
+        # 그룹을 위한 X축: 결산연월 (순서 강제 적용)
+        x=alt.X('결산연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0), sort=ordered_month_strings),
         # 그룹 내 막대 위치를 위한 X축 오프셋
         xOffset=alt.XOffset('손익 종류:N'),
         # 색상
@@ -488,17 +498,15 @@ else:
     elif not has_fx_rate_data:
         st.info("업로드된 파일에 '환율' 데이터가 없어 그래프를 표시할 수 없습니다.")
     else:
-        # 계약 기간에 해당하는 월만 필터링하기 위한 월별 문자열 목록 생성
-        contract_month_strings = [d.strftime('%Y년 %m월') for d in all_settlement_dates]
-
-        # 외화 환산 데이터에서 월별 환율 평균을 추출하고, 계약 기간에 해당하는 데이터만 남깁니다.
+        # 외화 환산 데이터에서 월별 환율 평균을 추출
         df_monthly_rates_from_ledger = df_ledger.groupby(df_ledger['회계일'].dt.to_period('M'))['환율'].mean().reset_index()
         df_monthly_rates_from_ledger.columns = ['회계연월', '환율']
-        # Altair에서 사용할 수 있도록 Period를 Datetime으로 변환
-        df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계연월'].dt.to_timestamp().dt.strftime('%Y년 %m월')
+        
+        # Altair에서 사용할 수 있도록 Period를 Datetime으로 변환하고 문자열 포맷을 통일
+        df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계연월'].dt.to_timestamp().apply(lambda x: f"{x.year}년 {x.month}월")
         
         # 계약 기간 내의 월에 해당하는 데이터만 필터링
-        df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(contract_month_strings)]
+        df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(ordered_month_strings)]
         df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
 
         # 파생상품 계약 만기까지의 모든 월을 포함하는 데이터프레임 생성
@@ -508,7 +516,7 @@ else:
         df_contract_rate_data = all_months_df.copy()
         df_contract_rate_data['환율'] = contract_rate
         df_contract_rate_data['환율 종류'] = '계약환율'
-        df_contract_rate_data['회계연월'] = df_contract_rate_data['회계연월'].dt.strftime('%Y년 %m월')
+        df_contract_rate_data['회계연월'] = df_contract_rate_data['회계연월'].apply(lambda x: f"{x.year}년 {x.month}월")
         
         # 두 데이터프레임을 합쳐서 차트에 사용할 데이터프레임 생성
         df_rates_for_chart = pd.concat([df_monthly_rates_from_ledger, df_contract_rate_data], ignore_index=True)
@@ -532,7 +540,7 @@ else:
 
         # Altair 꺾은선 그래프 생성
         line_chart = alt.Chart(df_rates_for_chart).mark_line(point=True).encode(
-            x=alt.X('회계연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0)),
+            x=alt.X('회계연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0), sort=ordered_month_strings),
             y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f'), scale=alt.Scale(domain=rate_domain)),
             color=alt.Color('환율 종류', legend=alt.Legend(title="환율 종류")),
             tooltip=[
