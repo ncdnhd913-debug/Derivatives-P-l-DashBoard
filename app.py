@@ -311,6 +311,7 @@ else:
     monthly_fx_pl = {}
     df_ledger = pd.DataFrame() # Initialize an empty DataFrame
     has_fx_rate_data = False
+    df_monthly_rates_from_ledger = pd.DataFrame() # Initialize an empty DataFrame for monthly rates
 
     if uploaded_file is not None:
         try:
@@ -382,6 +383,18 @@ else:
                     st.metric(label="외화환산손익 (원)", value=f"{selected_month_fx_pl:,.0f}원", delta="손실", delta_color="inverse")
             else:
                 st.info("선택된 결산일에 해당하는 외화환산손익 데이터가 업로드된 파일에 없습니다.")
+            
+            # --- 외화평가 시점별 환율 변동 추이 그래프를 위한 데이터 준비 (수정된 로직) ---
+            # 각 월의 마지막 날짜에 해당하는 데이터만 필터링
+            df_monthly_rates_from_ledger = df_ledger[df_ledger['회계일'].dt.is_month_end].copy()
+            
+            # '회계연월' 열 생성
+            df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
+            
+            # 필요한 열만 남기기
+            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[['회계연월', '환율']]
+            df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
+
 
         except Exception as e:
             st.error(f"파일을 처리하는 중 오류가 발생했습니다. 파일 형식이 올바른지 확인해주세요. 오류 메시지: {e}")
@@ -501,28 +514,18 @@ else:
     
     if uploaded_file is None:
         st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드하면 환율 변동 추이를 볼 수 있습니다.")
-    elif not has_fx_rate_data:
-        st.info("업로드된 파일에 '환율' 데이터가 없어 그래프를 표시할 수 없습니다.")
+    elif not has_fx_rate_data or df_monthly_rates_from_ledger.empty:
+        st.info("업로드된 파일에 '환율' 데이터가 없거나, 월말 데이터가 없어 그래프를 표시할 수 없습니다.")
     else:
-        # 외화 환산 데이터에서 월별 환율 평균을 추출
-        df_monthly_rates_from_ledger = df_ledger.groupby(df_ledger['회계일'].dt.to_period('M'))['환율'].mean().reset_index()
-        df_monthly_rates_from_ledger.columns = ['회계연월', '환율']
-        
-        # Altair에서 사용할 수 있도록 Period를 Datetime으로 변환하고 문자열 포맷을 통일
-        df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계연월'].dt.to_timestamp().apply(lambda x: f"{x.year}년 {x.month}월")
-        
         # 계약 기간 내의 월에 해당하는 데이터만 필터링
         df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(ordered_month_strings)]
-        df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
-
-        # 파생상품 계약 만기까지의 모든 월을 포함하는 데이터프레임 생성
-        all_months_df = pd.DataFrame({'회계연월': pd.to_datetime(pd.period_range(start=f'{start_date.year}-{start_date.month}', end=f'{end_date.year}-{end_date.month}', freq='M').to_timestamp())})
         
         # 계약환율 데이터를 추가하기 위한 데이터프레임 생성
-        df_contract_rate_data = all_months_df.copy()
-        df_contract_rate_data['환율'] = contract_rate
-        df_contract_rate_data['환율 종류'] = '계약환율'
-        df_contract_rate_data['회계연월'] = df_contract_rate_data['회계연월'].apply(lambda x: f"{x.year}년 {x.month}월")
+        df_contract_rate_data = pd.DataFrame({
+            '회계연월': ordered_month_strings,
+            '환율': [contract_rate] * len(ordered_month_strings),
+            '환율 종류': ['계약환율'] * len(ordered_month_strings)
+        })
         
         # 두 데이터프레임을 합쳐서 차트에 사용할 데이터프레임 생성
         df_rates_for_chart = pd.concat([df_monthly_rates_from_ledger, df_contract_rate_data], ignore_index=True)
