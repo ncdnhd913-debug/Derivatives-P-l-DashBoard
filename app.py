@@ -495,13 +495,11 @@ else:
         df_usd_rates = df_ledger[df_ledger['거래환종'].str.upper() == 'USD'].copy()
 
         # Calculate the MAXIMUM FX rate for each month's LAST DAY
-        df_usd_rates['is_last_day'] = df_usd_rates['회계일'].dt.is_month_end
-        df_monthly_rates_from_ledger = df_usd_rates[df_usd_rates['is_last_day']].groupby(
+        df_monthly_rates_from_ledger = df_usd_rates[df_usd_rates['회계일'].dt.is_month_end].groupby(
             df_usd_rates['회계일'].dt.strftime('%Y년 %m월')
         )['환율'].max().reset_index()
 
-        df_monthly_rates_from_ledger.rename(columns={'회계일': '결산연월'}, inplace=True)
-        df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
+        df_monthly_rates_from_ledger.rename(columns={'회계일': '결산연월', '환율': '외화평가 환율'}, inplace=True)
 
         # Create a single DataFrame for the chart based on the canonical month list
         df_rates_for_chart = pd.DataFrame({'결산연월': ordered_month_strings})
@@ -514,14 +512,10 @@ else:
         # Melt the DataFrame to prepare for plotting multiple lines
         df_rates_for_chart_melted = pd.melt(df_rates_for_chart,
                                              id_vars=['결산연월'],
-                                             value_vars=['계약환율', '환율'],
+                                             value_vars=['계약환율', '외화평가 환율'],
                                              var_name='환율 종류',
                                              value_name='환율')
 
-        # Renaming for clarity
-        df_rates_for_chart_melted['환율 종류'] = df_rates_for_chart_melted['환율 종류'].replace(
-            {'계약환율': '계약환율', '환율': '외화평가 환율'})
-            
         # Drop rows where '환율' is NaN, which happens if there's no data for a month
         df_rates_for_chart_melted.dropna(subset=['환율'], inplace=True)
 
