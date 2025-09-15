@@ -547,7 +547,7 @@ else:
                 ]
             ).properties(
                 title='계약환율 대비 외화평가 시점별 환율 변동',
-                width=chart_width,
+                width=800, # 차트 폭을 고정값으로 설정
                 height=400
             ).interactive()
             st.altair_chart(line_chart)
