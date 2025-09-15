@@ -437,8 +437,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                              value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                              var_name='손익 종류', value_name='손익 (백만원)')
+                                 value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                                 var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -497,8 +497,12 @@ else:
     if uploaded_file is not None and not df_ledger.empty:
         df_usd_rates = df_ledger[df_ledger['거래환종'].str.upper() == 'USD'].copy()
         
-        # Calculate the MAXIMUM FX rate for each month
-        df_monthly_rates_from_ledger = df_usd_rates.groupby(df_usd_rates['회계일'].dt.to_period('M'))['환율'].max().reset_index()
+        # Calculate the MAXIMUM FX rate for each month's LAST DAY
+        df_usd_rates['is_last_day'] = df_usd_rates['회계일'].dt.is_month_end
+        df_monthly_rates_from_ledger = df_usd_rates[df_usd_rates['is_last_day']].groupby(
+            df_usd_rates['회계일'].dt.to_period('M')
+        )['환율'].max().reset_index()
+        
         df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
         
         df_monthly_rates_for_chart = df_monthly_rates_from_ledger[['회계연월', '환율']]
@@ -509,9 +513,9 @@ else:
     if not df_monthly_rates_for_chart.empty:
         # Create DataFrame for contract rate
         df_contract_rate_data = pd.DataFrame({
-            '회계연월': df_monthly_rates_for_chart['회계연월'],
-            '환율': [contract_rate] * len(df_monthly_rates_for_chart),
-            '환율 종류': ['계약환율'] * len(df_monthly_rates_for_chart)
+            '회계연월': ordered_month_strings,
+            '환율': [contract_rate] * len(ordered_month_strings),
+            '환율 종류': ['계약환율'] * len(ordered_month_strings)
         })
 
         # Concatenate the two DataFrames for the chart
