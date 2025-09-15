@@ -385,8 +385,9 @@ else:
                 st.info("선택된 결산일에 해당하는 외화환산손익 데이터가 업로드된 파일에 없습니다.")
             
             # --- 외화평가 시점별 환율 변동 추이 그래프를 위한 데이터 준비 (수정된 로직) ---
-            # 각 월의 마지막 날짜에 해당하는 데이터만 필터링
-            df_monthly_rates_from_ledger = df_ledger[df_ledger['회계일'].dt.is_month_end].copy()
+            # 각 월의 마지막 날짜 데이터가 없더라도, 해당 월의 마지막 기록된 환율을 가져오도록 수정
+            df_monthly_rates_from_ledger = df_ledger.groupby(df_ledger['회계일'].dt.to_period('M'))['환율'].last().reset_index()
+            df_monthly_rates_from_ledger['회계일'] = df_monthly_rates_from_ledger['회계일'].dt.to_timestamp()
             
             # '회계연월' 열 생성
             df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
@@ -457,8 +458,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                         value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                         var_name='손익 종류', value_name='손익 (백만원)')
+                        value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                        var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
