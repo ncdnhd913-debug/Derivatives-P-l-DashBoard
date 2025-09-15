@@ -489,71 +489,34 @@ else:
     # --- NEW: 환율 꺾은선 그래프 추가 (Add FX Rate Line Chart) ---
     st.markdown("---")
     st.subheader("📈 외화평가 시점별 환율 변동 추이")
+    
+    # Initialize an empty DataFrame for monthly rates
+    df_monthly_rates_for_chart = pd.DataFrame()
 
-    # --- 수정된 부분: 외화평가 환율을 직접 입력/수정할 수 있는 Data Editor 추가 ---
-    st.markdown(
-        "아래 표의 **'외화평가 환율'**을 직접 수정하여 원하는 값을 차트에 반영할 수 있습니다.",
-        help="업로드된 파일의 월말 환율이 기본값으로 채워집니다. 더블클릭하거나 탭하여 수정하세요."
-    )
-
-    # Initialize a DataFrame for FX valuation rates
-    df_fx_rates = pd.DataFrame({
-        '회계연월': ordered_month_strings,
-        '환율': [0.0] * len(ordered_month_strings),
-        'month_key': [f"{d.split('년')[0]}-{d.split('년')[1].strip()[:-1].zfill(2)}" for d in ordered_month_strings]
-    })
-
-    # If a file is uploaded, use its rates as the default values
+    # If a file is uploaded, process it
     if uploaded_file is not None and not df_ledger.empty:
         df_usd_rates = df_ledger[df_ledger['거래환종'].str.upper() == 'USD'].copy()
-        df_monthly_rates_from_ledger = df_usd_rates.groupby(df_usd_rates['회계일'].dt.to_period('M'))['환율'].last().reset_index()
-        df_monthly_rates_from_ledger['month_key'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y-%m')
+        
+        # Calculate the MAXIMUM FX rate for each month
+        df_monthly_rates_from_ledger = df_usd_rates.groupby(df_usd_rates['회계일'].dt.to_period('M'))['환율'].max().reset_index()
+        df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
+        
+        df_monthly_rates_for_chart = df_monthly_rates_from_ledger[['회계연월', '환율']]
+        df_monthly_rates_for_chart['환율 종류'] = '외화평가 환율'
+    else:
+        st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드해 주세요.")
+    
+    if not df_monthly_rates_for_chart.empty:
+        # Create DataFrame for contract rate
+        df_contract_rate_data = pd.DataFrame({
+            '회계연월': df_monthly_rates_for_chart['회계연월'],
+            '환율': [contract_rate] * len(df_monthly_rates_for_chart),
+            '환율 종류': ['계약환율'] * len(df_monthly_rates_for_chart)
+        })
 
-        # Update the main DataFrame with values from the uploaded file
-        df_fx_rates = df_fx_rates.set_index('month_key')
-        df_fx_rates.update(df_monthly_rates_from_ledger.set_index('month_key'))
-        df_fx_rates = df_fx_rates.reset_index()
+        # Concatenate the two DataFrames for the chart
+        df_rates_for_chart = pd.concat([df_contract_rate_data, df_monthly_rates_for_chart])
 
-    # Use a data editor to let the user edit the rates
-    edited_fx_rates = st.data_editor(
-        df_fx_rates,
-        column_config={
-            "회계연월": st.column_config.TextColumn(
-                "회계연월",
-                disabled=True,
-            ),
-            "환율": st.column_config.NumberColumn(
-                "외화평가 환율",
-                min_value=0.0,
-                format="%.2f",
-                help="이 달의 외화평가 환율을 입력하세요."
-            ),
-            "month_key": None
-        },
-        hide_index=True,
-        num_rows="fixed",
-        key='fx_rates_editor'
-    )
-
-    # Store the edited DataFrame in session state
-    st.session_state.fx_valuation_rates = edited_fx_rates
-
-    # 계약환율 데이터를 추가하기 위한 데이터프레임 생성
-    df_contract_rate_data = pd.DataFrame({
-        '회계연월': ordered_month_strings,
-        '환율': [contract_rate] * len(ordered_month_strings),
-        '환율 종류': ['계약환율'] * len(ordered_month_strings)
-    })
-
-    # 외화평가 환율 데이터를 그래프용으로 변환
-    df_monthly_rates_for_chart = edited_fx_rates.rename(columns={'환율': '환율'}).copy()
-    df_monthly_rates_for_chart['환율 종류'] = '외화평가 환율'
-    df_monthly_rates_for_chart = df_monthly_rates_for_chart[['회계연월', '환율', '환율 종류']]
-
-    # 두 데이터프레임 합치기
-    df_rates_for_chart = pd.concat([df_contract_rate_data, df_monthly_rates_for_chart])
-
-    if not df_rates_for_chart.empty:
         # Calculate a dynamic domain for the line chart's Y-axis to improve visibility
         min_rate = df_rates_for_chart['환율'].min()
         max_rate = df_rates_for_chart['환율'].max()
@@ -565,7 +528,7 @@ else:
             
         rate_domain = [min_rate - buffer, max_rate + buffer]
 
-        # Altair 꺾은선 그래프 생성
+        # Generate Altair line chart
         line_chart = alt.Chart(df_rates_for_chart).mark_line(point=True).encode(
             x=alt.X('회계연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0), sort=ordered_month_strings),
             y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f'), scale=alt.Scale(domain=rate_domain)),
@@ -577,7 +540,9 @@ else:
             ]
         ).properties(
             title='계약환율 대비 외화평가 시점별 환율 변동',
-            width=800, # 차트 폭을 고정값으로 설정
+            width=800,
             height=400
         ).interactive()
         st.altair_chart(line_chart)
+    else:
+        st.info("파일이 업로드되었지만, 차트 생성을 위한 'USD' 데이터가 포함되어 있지 않습니다.")
