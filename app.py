@@ -311,7 +311,16 @@ else:
     monthly_fx_pl = {}
     df_ledger = pd.DataFrame() # Initialize an empty DataFrame
     has_fx_rate_data = False
-    df_monthly_rates_from_ledger = pd.DataFrame() # Initialize an empty DataFrame for monthly rates
+    
+    # 생성될 모든 월 문자열의 순서 리스트를 미리 생성 (정확한 차트 정렬을 위함)
+    ordered_month_strings = []
+    temp_year, temp_month = start_date.year, start_date.month
+    while date(temp_year, temp_month, 1) <= end_of_contract_month.replace(day=1):
+        ordered_month_strings.append(f"{temp_year}년 {temp_month}월")
+        temp_month += 1
+        if temp_month > 12:
+            temp_month = 1
+            temp_year += 1
 
     if uploaded_file is not None:
         try:
@@ -325,11 +334,7 @@ else:
             # Find the row that contains all required columns (case-insensitive and with stripping)
             for i in range(len(df_temp)):
                 row_values = [str(x).strip() for x in df_temp.iloc[i]]
-                found_all = True
-                for col in required_columns_strict:
-                    if col not in row_values:
-                        found_all = False
-                        break
+                found_all = all(col.lower() in [val.lower() for val in row_values] for col in required_columns_strict)
                 if found_all:
                     header_row = i
                     break
@@ -370,10 +375,6 @@ else:
             df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%m')
             monthly_fx_pl = df_ledger.groupby('month_key')['fx_pl'].sum().to_dict()
             
-            # Check if FX rate data exists
-            if '환율' in df_ledger.columns and not df_ledger['환율'].isnull().all() and (df_ledger['환율'] != 0).any():
-                has_fx_rate_data = True
-                
             # Display FX P&L metric here
             if f"{settlement_year}-{settlement_month:02d}" in monthly_fx_pl:
                 selected_month_fx_pl = monthly_fx_pl[f"{settlement_year}-{settlement_month:02d}"]
@@ -389,7 +390,7 @@ else:
             st.stop()
     else:
         st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드해 주세요.")
-
+    
     # --- Display P&L scenario with a chart
     st.markdown("---")
     st.subheader("📊 파생상품 및 외화평가 기간별 총 손익 시나리오")
@@ -399,16 +400,6 @@ else:
     current_year_chart = start_date.year
     current_month_chart = start_date.month
     
-    # 생성될 모든 월 문자열의 순서 리스트를 미리 생성 (정확한 차트 정렬을 위함)
-    ordered_month_strings = []
-    temp_year, temp_month = start_date.year, start_date.month
-    while date(temp_year, temp_month, 1) <= end_of_contract_month.replace(day=1):
-        ordered_month_strings.append(f"{temp_year}년 {temp_month}월")
-        temp_month += 1
-        if temp_month > 12:
-            temp_month = 1
-            temp_year += 1
-
     while date(current_year_chart, current_month_chart, 1) <= end_of_contract_month.replace(day=1):
         # 월별 키를 생성할 때 `:02d` 포맷을 사용하여 항상 두 자릿수로 패딩합니다.
         month_key_chart = f"{current_year_chart}-{current_month_chart:02d}"
@@ -505,15 +496,21 @@ else:
         '환율 종류': ['계약환율'] * len(ordered_month_strings)
     })
     
+    df_rates_for_chart = df_contract_rate_data.copy()
+    
     if uploaded_file is None:
         st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드하면 환율 변동 추이를 볼 수 있습니다.")
     else:
         # 외화평가 환율 데이터가 있는지 확인하고 데이터프레임 생성
-        if has_fx_rate_data:
+        if not df_ledger.empty and '환율' in df_ledger.columns and (df_ledger['환율'] > 0).any():
+            has_fx_rate_data = True
+            
             # 각 월의 마지막 날짜 데이터가 없더라도, 해당 월의 마지막 기록된 환율을 가져오도록 수정
             df_monthly_rates_from_ledger = df_ledger.groupby(df_ledger['회계일'].dt.to_period('M'))['환율'].last().reset_index()
+            
+            # PeriodDtype을 Timestamp로 변환
             df_monthly_rates_from_ledger['회계일'] = df_monthly_rates_from_ledger['회계일'].dt.to_timestamp()
-
+            
             # 계약 기간 내의 월에 해당하는 데이터만 필터링
             df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
             df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(ordered_month_strings)]
@@ -521,9 +518,9 @@ else:
             df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
             
             df_rates_for_chart = pd.concat([df_monthly_rates_from_ledger, df_contract_rate_data], ignore_index=True)
-
+            
         else:
-            st.info("업로드된 파일에 '환율' 데이터가 없어 계약환율만 표시됩니다.")
+            st.info("업로드된 파일에 유효한 '환율' 데이터가 없어 계약환율만 표시됩니다.")
             df_rates_for_chart = df_contract_rate_data
 
         if not df_rates_for_chart.empty:
