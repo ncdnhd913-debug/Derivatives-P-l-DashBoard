@@ -490,9 +490,6 @@ else:
     st.markdown("---")
     st.subheader("📈 외화평가 시점별 환율 변동 추이")
 
-    # Initialize an empty DataFrame for monthly rates
-    df_monthly_rates_for_chart = pd.DataFrame()
-
     # If a file is uploaded, process it
     if uploaded_file is not None and not df_ledger.empty:
         df_usd_rates = df_ledger[df_ledger['거래환종'].str.upper() == 'USD'].copy()
@@ -500,30 +497,38 @@ else:
         # Calculate the MAXIMUM FX rate for each month's LAST DAY
         df_usd_rates['is_last_day'] = df_usd_rates['회계일'].dt.is_month_end
         df_monthly_rates_from_ledger = df_usd_rates[df_usd_rates['is_last_day']].groupby(
-            df_usd_rates['회계일'].dt.to_period('M')
+            df_usd_rates['회계일'].dt.strftime('%Y년 %m월')
         )['환율'].max().reset_index()
 
-        df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
+        df_monthly_rates_from_ledger.rename(columns={'회계일': '결산연월'}, inplace=True)
+        df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
 
-        df_monthly_rates_for_chart = df_monthly_rates_from_ledger[['회계연월', '환율']]
-        df_monthly_rates_for_chart['환율 종류'] = '외화평가 환율'
-    else:
-        st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드해 주세요.")
+        # Create a single DataFrame for the chart based on the canonical month list
+        df_rates_for_chart = pd.DataFrame({'결산연월': ordered_month_strings})
+        df_rates_for_chart['계약환율'] = contract_rate
 
-    if not df_monthly_rates_for_chart.empty:
-        # Create DataFrame for contract rate
-        df_contract_rate_data = pd.DataFrame({
-            '회계연월': ordered_month_strings,
-            '환율': [contract_rate] * len(ordered_month_strings),
-            '환율 종류': ['계약환율'] * len(ordered_month_strings)
-        })
+        # Merge the FX valuation rates into the main DataFrame
+        df_rates_for_chart = pd.merge(df_rates_for_chart, df_monthly_rates_from_ledger,
+                                       on='결산연월', how='left')
 
-        # Concatenate the two DataFrames for the chart
-        df_rates_for_chart = pd.concat([df_contract_rate_data, df_monthly_rates_for_chart])
+        # Melt the DataFrame to prepare for plotting multiple lines
+        df_rates_for_chart_melted = pd.melt(df_rates_for_chart,
+                                             id_vars=['결산연월'],
+                                             value_vars=['계약환율', '환율'],
+                                             var_name='환율 종류',
+                                             value_name='환율')
+
+        # Renaming for clarity
+        df_rates_for_chart_melted['환율 종류'] = df_rates_for_chart_melted['환율 종류'].replace(
+            {'계약환율': '계약환율', '환율': '외화평가 환율'})
+            
+        # Drop rows where '환율' is NaN, which happens if there's no data for a month
+        df_rates_for_chart_melted.dropna(subset=['환율'], inplace=True)
+
 
         # Calculate a dynamic domain for the line chart's Y-axis to improve visibility
-        min_rate = df_rates_for_chart['환율'].min()
-        max_rate = df_rates_for_chart['환율'].max()
+        min_rate = df_rates_for_chart_melted['환율'].min()
+        max_rate = df_rates_for_chart_melted['환율'].max()
 
         if math.isclose(min_rate, max_rate):
             buffer = min_rate * 0.05
@@ -533,12 +538,12 @@ else:
         rate_domain = [min_rate - buffer, max_rate + buffer]
 
         # Generate Altair line chart
-        line_chart = alt.Chart(df_rates_for_chart).mark_line(point=True).encode(
-            x=alt.X('회계연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0), sort=ordered_month_strings),
+        line_chart = alt.Chart(df_rates_for_chart_melted).mark_line(point=True).encode(
+            x=alt.X('결산연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0), sort=ordered_month_strings),
             y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f'), scale=alt.Scale(domain=rate_domain)),
             color=alt.Color('환율 종류', legend=alt.Legend(title="환율 종류")),
             tooltip=[
-                alt.Tooltip('회계연월', title='결산연월'),
+                alt.Tooltip('결산연월', title='결산연월'),
                 alt.Tooltip('환율 종류', title='환율 종류'),
                 alt.Tooltip('환율', title='환율', format=',.2f')
             ]
@@ -549,4 +554,4 @@ else:
         ).interactive()
         st.altair_chart(line_chart)
     else:
-        st.info("파일이 업로드되었지만, 차트 생성을 위한 'USD' 데이터가 포함되어 있지 않습니다.")
+        st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드해 주세요.")
