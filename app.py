@@ -371,21 +371,9 @@ else:
             monthly_fx_pl = df_ledger.groupby('month_key')['fx_pl'].sum().to_dict()
             
             # Check if FX rate data exists
-            if '환율' in df_ledger.columns and not df_ledger['환율'].isnull().all():
+            if '환율' in df_ledger.columns and not df_ledger['환율'].isnull().all() and (df_ledger['환율'] != 0).any():
                 has_fx_rate_data = True
                 
-            # --- START OF MODIFIED SECTION ---
-            # 각 월의 마지막 날짜 데이터가 없더라도, 해당 월의 마지막 기록된 환율을 가져오도록 수정
-            df_monthly_rates_from_ledger = df_ledger.groupby(df_ledger['회계일'].dt.to_period('M'))['환율'].last().reset_index()
-            df_monthly_rates_from_ledger['회계일'] = df_monthly_rates_from_ledger['회계일'].dt.to_timestamp()
-
-            # 계약 기간 내의 월에 해당하는 데이터만 필터링
-            df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
-            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(ordered_month_strings)]
-            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[['회계연월', '환율']]
-            df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
-            # --- END OF MODIFIED SECTION ---
-
             # Display FX P&L metric here
             if f"{settlement_year}-{settlement_month:02d}" in monthly_fx_pl:
                 selected_month_fx_pl = monthly_fx_pl[f"{settlement_year}-{settlement_month:02d}"]
@@ -510,27 +498,40 @@ else:
     st.markdown("---")
     st.subheader("📈 외화평가 시점별 환율 변동 추이")
     
+    # 계약환율 데이터를 추가하기 위한 데이터프레임 생성
+    df_contract_rate_data = pd.DataFrame({
+        '회계연월': ordered_month_strings,
+        '환율': [contract_rate] * len(ordered_month_strings),
+        '환율 종류': ['계약환율'] * len(ordered_month_strings)
+    })
+    
     if uploaded_file is None:
         st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드하면 환율 변동 추이를 볼 수 있습니다.")
     else:
-        # 계약환율 데이터를 추가하기 위한 데이터프레임 생성
-        df_contract_rate_data = pd.DataFrame({
-            '회계연월': ordered_month_strings,
-            '환율': [contract_rate] * len(ordered_month_strings),
-            '환율 종류': ['계약환율'] * len(ordered_month_strings)
-        })
+        # 외화평가 환율 데이터가 있는지 확인하고 데이터프레임 생성
+        if has_fx_rate_data:
+            # 각 월의 마지막 날짜 데이터가 없더라도, 해당 월의 마지막 기록된 환율을 가져오도록 수정
+            df_monthly_rates_from_ledger = df_ledger.groupby(df_ledger['회계일'].dt.to_period('M'))['환율'].last().reset_index()
+            df_monthly_rates_from_ledger['회계일'] = df_monthly_rates_from_ledger['회계일'].dt.to_timestamp()
 
-        # --- START OF MODIFIED SECTION ---
-        # df_monthly_rates_from_ledger가 비어있지 않을 경우에만 병합
-        if not df_monthly_rates_from_ledger.empty:
+            # 계약 기간 내의 월에 해당하는 데이터만 필터링
+            df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
+            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(ordered_month_strings)]
+            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[['회계연월', '환율']]
+            df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
+            
             df_rates_for_chart = pd.concat([df_monthly_rates_from_ledger, df_contract_rate_data], ignore_index=True)
+
+        else:
+            st.info("업로드된 파일에 '환율' 데이터가 없어 계약환율만 표시됩니다.")
+            df_rates_for_chart = df_contract_rate_data
+
+        if not df_rates_for_chart.empty:
             # Calculate a dynamic domain for the line chart's Y-axis to improve visibility
             min_rate = df_rates_for_chart['환율'].min()
             max_rate = df_rates_for_chart['환율'].max()
 
-            # Add a small buffer to the min and max rates
             if min_rate == max_rate:
-                # Handle case where all rates are the same
                 buffer = min_rate * 0.05
             else:
                 buffer = (max_rate - min_rate) * 0.1
@@ -553,31 +554,3 @@ else:
                 height=400
             ).interactive()
             st.altair_chart(line_chart)
-        else:
-            # df_monthly_rates_from_ledger가 비어있을 경우 계약환율만 표시
-            st.info("업로드된 파일에 '환율' 데이터가 없어 계약환율만 표시됩니다.")
-            df_rates_for_chart = df_contract_rate_data
-
-            # Calculate a dynamic domain for the line chart's Y-axis to improve visibility
-            min_rate = df_rates_for_chart['환율'].min()
-            max_rate = df_rates_for_chart['환율'].max()
-            buffer = min_rate * 0.05
-            rate_domain = [min_rate - buffer, max_rate + buffer]
-
-            # Altair 꺾은선 그래프 생성
-            line_chart = alt.Chart(df_rates_for_chart).mark_line(point=True).encode(
-                x=alt.X('회계연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0), sort=ordered_month_strings),
-                y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f'), scale=alt.Scale(domain=rate_domain)),
-                color=alt.Color('환율 종류', legend=alt.Legend(title="환율 종류")),
-                tooltip=[
-                    alt.Tooltip('회계연월', title='결산연월'),
-                    alt.Tooltip('환율 종류', title='환율 종류'),
-                    alt.Tooltip('환율', title='환율', format=',.2f')
-                ]
-            ).properties(
-                title='계약환율 대비 외화평가 시점별 환율 변동',
-                width=chart_width,
-                height=400
-            ).interactive()
-            st.altair_chart(line_chart)
-        # --- END OF MODIFIED SECTION ---
