@@ -172,7 +172,6 @@ initial_rate_for_hypo = 0.0
 while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_month.replace(day=1):
     is_expiry_month_scenario = (current_year_scenario == end_date.year and current_month_scenario == end_date.month)
     if not is_expiry_month_scenario:
-        # 월별 키를 생성할 때 `f"{...}-{...:02d}"` 형식으로 패딩을 추가하여 항상 두 자릿수로 만듭니다.
         month_key = f"{current_year_scenario}-{current_month_scenario:02d}"
         
         if month_key not in st.session_state.hypothetical_rates:
@@ -310,7 +309,6 @@ else:
 
     monthly_fx_pl = {}
     df_ledger = pd.DataFrame() # Initialize an empty DataFrame
-    has_fx_rate_data = False
     
     # 생성될 모든 월 문자열의 순서 리스트를 미리 생성 (정확한 차트 정렬을 위함)
     ordered_month_strings = []
@@ -401,7 +399,6 @@ else:
     current_month_chart = start_date.month
     
     while date(current_year_chart, current_month_chart, 1) <= end_of_contract_month.replace(day=1):
-        # 월별 키를 생성할 때 `:02d` 포맷을 사용하여 항상 두 자릿수로 패딩합니다.
         month_key_chart = f"{current_year_chart}-{current_month_chart:02d}"
         
         # Calculate Derivative P&L
@@ -503,7 +500,6 @@ else:
     else:
         # 외화평가 환율 데이터가 있는지 확인하고 데이터프레임 생성
         if not df_ledger.empty and '환율' in df_ledger.columns and (df_ledger['환율'] > 0).any():
-            has_fx_rate_data = True
             
             # 각 월의 마지막 날짜 데이터가 없더라도, 해당 월의 마지막 기록된 환율을 가져오도록 수정
             df_monthly_rates_from_ledger = df_ledger.groupby(df_ledger['회계일'].dt.to_period('M'))['환율'].last().reset_index()
@@ -517,7 +513,7 @@ else:
             df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[['회계연월', '환율']]
             df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
             
-            df_rates_for_chart = pd.concat([df_monthly_rates_from_ledger, df_contract_rate_data], ignore_index=True)
+            df_rates_for_chart = pd.concat([df_contract_rate_data, df_monthly_rates_from_ledger], ignore_index=True)
             
         else:
             st.info("업로드된 파일에 유효한 '환율' 데이터가 없어 계약환율만 표시됩니다.")
@@ -528,7 +524,7 @@ else:
             min_rate = df_rates_for_chart['환율'].min()
             max_rate = df_rates_for_chart['환율'].max()
 
-            if min_rate == max_rate:
+            if math.isclose(min_rate, max_rate):
                 buffer = min_rate * 0.05
             else:
                 buffer = (max_rate - min_rate) * 0.1
