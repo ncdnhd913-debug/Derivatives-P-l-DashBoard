@@ -172,7 +172,6 @@ initial_rate_for_hypo = 0.0
 while date(current_year_scenario, current_month_scenario, 1) <= end_of_contract_month.replace(day=1):
     is_expiry_month_scenario = (current_year_scenario == end_date.year and current_month_scenario == end_date.month)
     if not is_expiry_month_scenario:
-        # 월별 키를 생성할 때 `f"{...}-{...:02d}"` 형식으로 패딩을 추가하여 항상 두 자릿수로 만듭니다.
         month_key = f"{current_year_scenario}-{current_month_scenario:02d}"
         
         if month_key not in st.session_state.hypothetical_rates:
@@ -310,8 +309,16 @@ else:
 
     monthly_fx_pl = {}
     df_ledger = pd.DataFrame() # Initialize an empty DataFrame
-    has_fx_rate_data = False
-    df_monthly_rates_from_ledger = pd.DataFrame() # Initialize an empty DataFrame for monthly rates
+    
+    # 생성될 모든 월 문자열의 순서 리스트를 미리 생성 (정확한 차트 정렬을 위함)
+    ordered_month_strings = []
+    temp_year, temp_month = start_date.year, start_date.month
+    while date(temp_year, temp_month, 1) <= end_of_contract_month.replace(day=1):
+        ordered_month_strings.append(f"{temp_year}년 {temp_month}월")
+        temp_month += 1
+        if temp_month > 12:
+            temp_month = 1
+            temp_year += 1
 
     if uploaded_file is not None:
         try:
@@ -325,11 +332,7 @@ else:
             # Find the row that contains all required columns (case-insensitive and with stripping)
             for i in range(len(df_temp)):
                 row_values = [str(x).strip() for x in df_temp.iloc[i]]
-                found_all = True
-                for col in required_columns_strict:
-                    if col not in row_values:
-                        found_all = False
-                        break
+                found_all = all(col.lower() in [val.lower() for val in row_values] for col in required_columns_strict)
                 if found_all:
                     header_row = i
                     break
@@ -370,10 +373,6 @@ else:
             df_ledger['month_key'] = df_ledger['회계일'].dt.strftime('%Y-%m')
             monthly_fx_pl = df_ledger.groupby('month_key')['fx_pl'].sum().to_dict()
             
-            # Check if FX rate data exists
-            if '환율' in df_ledger.columns and not df_ledger['환율'].isnull().all():
-                has_fx_rate_data = True
-
             # Display FX P&L metric here
             if f"{settlement_year}-{settlement_month:02d}" in monthly_fx_pl:
                 selected_month_fx_pl = monthly_fx_pl[f"{settlement_year}-{settlement_month:02d}"]
@@ -383,25 +382,13 @@ else:
                     st.metric(label="외화환산손익 (원)", value=f"{selected_month_fx_pl:,.0f}원", delta="손실", delta_color="inverse")
             else:
                 st.info("선택된 결산일에 해당하는 외화환산손익 데이터가 업로드된 파일에 없습니다.")
-            
-            # --- 외화평가 시점별 환율 변동 추이 그래프를 위한 데이터 준비 (수정된 로직) ---
-            # 각 월의 마지막 날짜에 해당하는 데이터만 필터링
-            df_monthly_rates_from_ledger = df_ledger[df_ledger['회계일'].dt.is_month_end].copy()
-            
-            # '회계연월' 열 생성
-            df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
-            
-            # 필요한 열만 남기기
-            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[['회계연월', '환율']]
-            df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
-
 
         except Exception as e:
             st.error(f"파일을 처리하는 중 오류가 발생했습니다. 파일 형식이 올바른지 확인해주세요. 오류 메시지: {e}")
             st.stop()
     else:
         st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드해 주세요.")
-
+    
     # --- Display P&L scenario with a chart
     st.markdown("---")
     st.subheader("📊 파생상품 및 외화평가 기간별 총 손익 시나리오")
@@ -411,18 +398,7 @@ else:
     current_year_chart = start_date.year
     current_month_chart = start_date.month
     
-    # 생성될 모든 월 문자열의 순서 리스트를 미리 생성 (정확한 차트 정렬을 위함)
-    ordered_month_strings = []
-    temp_year, temp_month = start_date.year, start_date.month
-    while date(temp_year, temp_month, 1) <= end_of_contract_month.replace(day=1):
-        ordered_month_strings.append(f"{temp_year}년 {temp_month}월")
-        temp_month += 1
-        if temp_month > 12:
-            temp_month = 1
-            temp_year += 1
-
     while date(current_year_chart, current_month_chart, 1) <= end_of_contract_month.replace(day=1):
-        # [수정] 월별 키를 생성할 때 `:02d` 포맷을 사용하여 항상 두 자릿수로 패딩합니다.
         month_key_chart = f"{current_year_chart}-{current_month_chart:02d}"
         
         # Calculate Derivative P&L
@@ -457,8 +433,8 @@ else:
     # Create DataFrame and melt for grouped bar chart
     df_scenario = pd.DataFrame(scenario_data)
     df_melted = pd.melt(df_scenario, id_vars=['결산연월'], 
-                         value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
-                         var_name='손익 종류', value_name='손익 (백만원)')
+                        value_vars=['파생상품 손익 (백만원)', '외화환산손익 (백만원)'],
+                        var_name='손익 종류', value_name='손익 (백만원)')
 
     # Generate and display Altair chart
     st.write("각 월에 대한 파생상품 손익과 업로드된 파일의 외화환산손익을 비교합니다.")
@@ -483,7 +459,6 @@ else:
     chart_width = max(600, num_months * 80) # Use a minimum width, then scale up
     
     # --- 그룹 막대 차트로 변경하여 모든 월이 표시되도록 수정
-    # [수정] `use_container_width=True`를 제거하고 대신 `width` 속성을 동적으로 설정합니다.
     bar_chart = alt.Chart(df_melted).mark_bar(size=20).encode(
         # Y축
         y=alt.Y('손익 (백만원)', axis=alt.Axis(title='손익 (백만원)', format=',.2f'), scale=alt.Scale(domain=chart_domain)),
@@ -501,68 +476,74 @@ else:
         ]
     ).properties(
         title='월별 파생상품 및 외화평가 손익 시나리오',
-        width=chart_width, # Apply dynamic width
+        width=chart_width,
         height=400
     ).interactive()
 
-    # [수정] `use_container_width=True` 인수를 제거합니다.
     st.altair_chart(bar_chart)
 
     # --- NEW: 환율 꺾은선 그래프 추가 (Add FX Rate Line Chart) ---
     st.markdown("---")
     st.subheader("📈 외화평가 시점별 환율 변동 추이")
     
+    # 계약환율 데이터를 추가하기 위한 데이터프레임 생성
+    df_contract_rate_data = pd.DataFrame({
+        '회계연월': ordered_month_strings,
+        '환율': [contract_rate] * len(ordered_month_strings),
+        '환율 종류': ['계약환율'] * len(ordered_month_strings)
+    })
+    
+    df_rates_for_chart = df_contract_rate_data.copy()
+    
     if uploaded_file is None:
         st.info("왼쪽 사이드바에서 계정별원장 파일을 업로드하면 환율 변동 추이를 볼 수 있습니다.")
-    elif not has_fx_rate_data or df_monthly_rates_from_ledger.empty:
-        st.info("업로드된 파일에 '환율' 데이터가 없거나, 월말 데이터가 없어 그래프를 표시할 수 없습니다.")
     else:
-        # 계약 기간 내의 월에 해당하는 데이터만 필터링
-        df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(ordered_month_strings)]
-        
-        # 계약환율 데이터를 추가하기 위한 데이터프레임 생성
-        df_contract_rate_data = pd.DataFrame({
-            '회계연월': ordered_month_strings,
-            '환율': [contract_rate] * len(ordered_month_strings),
-            '환율 종류': ['계약환율'] * len(ordered_month_strings)
-        })
-        
-        # 두 데이터프레임을 합쳐서 차트에 사용할 데이터프레임 생성
-        df_rates_for_chart = pd.concat([df_monthly_rates_from_ledger, df_contract_rate_data], ignore_index=True)
+        # 외화평가 환율 데이터가 있는지 확인하고 데이터프레임 생성
+        if not df_ledger.empty and '환율' in df_ledger.columns and (df_ledger['환율'] > 0).any():
+            
+            # 각 월의 마지막 날짜 데이터가 없더라도, 해당 월의 마지막 기록된 환율을 가져오도록 수정
+            df_monthly_rates_from_ledger = df_ledger.groupby(df_ledger['회계일'].dt.to_period('M'))['환율'].last().reset_index()
+            
+            # PeriodDtype을 Timestamp로 변환
+            df_monthly_rates_from_ledger['회계일'] = df_monthly_rates_from_ledger['회계일'].dt.to_timestamp()
+            
+            # 계약 기간 내의 월에 해당하는 데이터만 필터링
+            df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
+            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(ordered_month_strings)]
+            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[['회계연월', '환율']]
+            df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
+            
+            df_rates_for_chart = pd.concat([df_contract_rate_data, df_monthly_rates_from_ledger], ignore_index=True)
+            
+        else:
+            st.info("업로드된 파일에 유효한 '환율' 데이터가 없어 계약환율만 표시됩니다.")
+            df_rates_for_chart = df_contract_rate_data
 
-        # Calculate a dynamic domain for the line chart's Y-axis to improve visibility
         if not df_rates_for_chart.empty:
+            # Calculate a dynamic domain for the line chart's Y-axis to improve visibility
             min_rate = df_rates_for_chart['환율'].min()
             max_rate = df_rates_for_chart['환율'].max()
 
-            # Add a small buffer to the min and max rates
-            if min_rate == max_rate:
-                # Handle case where all rates are the same
+            if math.isclose(min_rate, max_rate):
                 buffer = min_rate * 0.05
             else:
                 buffer = (max_rate - min_rate) * 0.1
-
+                
             rate_domain = [min_rate - buffer, max_rate + buffer]
-        else:
-            # Fallback domain if no data exists
-            rate_domain = [0, 2000] # A reasonable fallback range for KRW/USD
 
-        # Altair 꺾은선 그래프 생성
-        # [수정] `use_container_width=True`를 제거하고 대신 `width` 속성을 동적으로 설정합니다.
-        line_chart = alt.Chart(df_rates_for_chart).mark_line(point=True).encode(
-            x=alt.X('회계연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0), sort=ordered_month_strings),
-            y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f'), scale=alt.Scale(domain=rate_domain)),
-            color=alt.Color('환율 종류', legend=alt.Legend(title="환율 종류")),
-            tooltip=[
-                alt.Tooltip('회계연월', title='결산연월'),
-                alt.Tooltip('환율 종류', title='환율 종류'),
-                alt.Tooltip('환율', title='환율', format=',.2f')
-            ]
-        ).properties(
-            title='계약환율 대비 외화평가 시점별 환율 변동',
-            width=chart_width, # Apply dynamic width
-            height=400
-        ).interactive()
-
-        # [수정] `use_container_width=True` 인수를 제거합니다.
-        st.altair_chart(line_chart)
+            # Altair 꺾은선 그래프 생성
+            line_chart = alt.Chart(df_rates_for_chart).mark_line(point=True).encode(
+                x=alt.X('회계연월:O', axis=alt.Axis(title='결산 연월', labelAngle=0), sort=ordered_month_strings),
+                y=alt.Y('환율', axis=alt.Axis(title='환율', format=',.2f'), scale=alt.Scale(domain=rate_domain)),
+                color=alt.Color('환율 종류', legend=alt.Legend(title="환율 종류")),
+                tooltip=[
+                    alt.Tooltip('회계연월', title='결산연월'),
+                    alt.Tooltip('환율 종류', title='환율 종류'),
+                    alt.Tooltip('환율', title='환율', format=',.2f')
+                ]
+            ).properties(
+                title='계약환율 대비 외화평가 시점별 환율 변동',
+                width=800, # 차트 폭을 고정값으로 설정
+                height=400
+            ).interactive()
+            st.altair_chart(line_chart)
