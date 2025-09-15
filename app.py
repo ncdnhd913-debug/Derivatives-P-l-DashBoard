@@ -509,11 +509,22 @@ else:
             
             # 계약 기간 내의 월에 해당하는 데이터만 필터링
             df_monthly_rates_from_ledger['회계연월'] = df_monthly_rates_from_ledger['회계일'].dt.strftime('%Y년 %m월')
-            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(ordered_month_strings)]
-            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[['회계연월', '환율']]
+            df_monthly_rates_from_ledger = df_monthly_rates_from_ledger[df_monthly_rates_from_ledger['회계연월'].isin(ordered_month_strings)].copy()
             df_monthly_rates_from_ledger['환율 종류'] = '외화평가 환율'
             
-            df_rates_for_chart = pd.concat([df_contract_rate_data, df_monthly_rates_from_ledger], ignore_index=True)
+            # Use merge to combine dataframes
+            df_rates_for_chart = pd.merge(df_contract_rate_data, df_monthly_rates_from_ledger[['회계연월', '환율', '환율 종류']], on='회계연월', how='outer', suffixes=('_contract', '_fx'))
+            
+            # Fill NaN values with the rate from the other column and ensure correct '환율 종류'
+            df_rates_for_chart['환율_final'] = df_rates_for_chart['환율_fx'].fillna(df_rates_for_chart['환율_contract'])
+            df_rates_for_chart['환율 종류_final'] = df_rates_for_chart['환율 종류_fx'].fillna(df_rates_for_chart['환율 종류_contract'])
+            
+            # Recreate the final dataframe with correct columns
+            df_rates_for_chart = pd.DataFrame({
+                '회계연월': df_rates_for_chart['회계연월'],
+                '환율': df_rates_for_chart['환율_final'],
+                '환율 종류': df_rates_for_chart['환율 종류_final']
+            })
             
         else:
             st.info("업로드된 파일에 유효한 '환율' 데이터가 없어 계약환율만 표시됩니다.")
